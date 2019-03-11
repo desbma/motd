@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process;
 
 
-fn normalize_drive_path(path : &str) -> String {
+fn normalize_drive_path(path: &str) -> String {
     let mut path_string = path.to_string();
     let fs_path = Path::new(path);
 
