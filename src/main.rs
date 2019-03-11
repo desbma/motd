@@ -5,8 +5,20 @@ use std::path::Path;
 use std::process;
 
 
-fn normalize_drive_path(drive_path : &str) {
+fn normalize_drive_path(path : &str) -> String {
+    let mut path_string = path.to_string();
+    let fs_path = Path::new(path);
 
+    if fs::symlink_metadata(path).unwrap().file_type().is_symlink() {
+        let mut real_path = fs::read_link(path).unwrap();
+        if !real_path.is_absolute() {
+            let dirname = fs_path.parent().unwrap();
+            real_path = dirname.join(real_path).canonicalize().unwrap();
+        }
+        path_string = real_path.into_os_string().into_string().unwrap();
+    }
+
+    path_string
 }
 
 
@@ -22,29 +34,13 @@ fn main() {
     let mut data = String::new();
     stream.read_to_string(&mut data).unwrap();
 
-    // Parse
+    // Parse & output
     let drives_data: Vec<&str> = data.split("|").collect();
-    println!("{}", drives_data.len());
     for drive_data in drives_data.chunks_exact(5) {
-        let drive_path_str = drive_data[1];
-        let mut drive_path_str2 = drive_data[1].to_string();
-        let drive_path = Path::new(drive_path_str);
-
-        // Resolve to canonical drive path if needed
-        if fs::symlink_metadata(drive_path_str).unwrap().file_type().is_symlink() {
-            let mut real_path = fs::read_link(drive_path_str).unwrap();
-            if !real_path.is_absolute() {
-                let dirname = drive_path.parent().unwrap();
-                real_path = dirname.join(real_path).canonicalize().unwrap();;
-            }
-            drive_path_str2 = real_path.into_os_string().into_string().unwrap();
-        }
-        println!("{}", drive_path_str2);
+        let drive_path = normalize_drive_path(drive_data[1]);
+        let pretty_name = drive_data[2];
+        let temp = drive_data[3];
+        let temp_unit = drive_data[4].replace("C", "°C");
+        println!("{} ({});{} {}", drive_path, pretty_name, temp, temp_unit);
     }
-
-    // name = "%s (%s)" % (drive_path, drive_data[2])
-    // temp = " ".join(drive_data[3:5]).replace("C", "°C")
-    // print("%s:;%s" % (name, temp))
-
-
 }
