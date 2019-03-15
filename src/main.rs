@@ -1,8 +1,39 @@
 use std::fs;
+use std::fs::File;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::path::Path;
 use std::process;
+use std::str::FromStr;
+
+use linked_hash_map::LinkedHashMap;
+use glob::glob;
+
+
+fn get_cpu_temps(temps: &mut LinkedHashMap<String, u32>) {
+    for hwmon_entry in glob("/sys/class/hwmon/hwmon*").unwrap() {
+        let hwmon_dir = hwmon_entry.unwrap().into_os_string().into_string().unwrap();
+        let label_pattern = format!("{}/temp*_label", hwmon_dir);
+        for label_entry in glob(&label_pattern).unwrap() {
+            // Read sensor name
+            let input_label_filepath = label_entry.unwrap().into_os_string().into_string().unwrap();
+            let mut label = String::new();
+            let mut input_label_file = File::open(&input_label_filepath).unwrap();
+            input_label_file.read_to_string(&mut label).unwrap();
+            label = label.trim_end().to_string();
+
+            // Read temp
+            let input_temp_filepath = format!("{}_input", input_label_filepath[..input_label_filepath.len() - 6].to_owned());
+            let mut input_temp_file = File::open(input_temp_filepath).unwrap();
+            let mut temp_str = String::new();
+            input_temp_file.read_to_string(&mut temp_str).unwrap();
+            let temp_val = temp_str.trim_end().parse::<u32>().unwrap() / 1000;
+
+            // Store temp
+            temps.insert(label, temp_val);
+        }
+    }
+}
 
 
 fn normalize_drive_path(path: &str) -> String {
@@ -22,10 +53,9 @@ fn normalize_drive_path(path: &str) -> String {
 }
 
 
-fn main() {
+fn get_drive_temps(temps: &mut LinkedHashMap<String, u32>) {
     // Connect
-    let stream = TcpStream::connect("127.0.0.1:7634");  // TODO port const
-    let mut stream = match stream {
+    let mut stream = match TcpStream::connect("127.0.0.1:7634") {  // TODO port const
         Ok(s) => s,
         Err(_e) => process::exit(0),  // TODO use EXIT_SUCCESS
     };
@@ -34,13 +64,31 @@ fn main() {
     let mut data = String::new();
     stream.read_to_string(&mut data).unwrap();
 
-    // Parse & output
+    // Parse
     let drives_data: Vec<&str> = data.split("|").collect();
     for drive_data in drives_data.chunks_exact(5) {
         let drive_path = normalize_drive_path(drive_data[1]);
         let pretty_name = drive_data[2];
-        let temp = drive_data[3];
-        let temp_unit = drive_data[4].replace("C", "°C");
-        println!("{} ({});{} {}", drive_path, pretty_name, temp, temp_unit);
+        let temp = u32::from_str(drive_data[3]).unwrap();
+
+        // Store temp
+        temps.insert(format!("{} ({})", drive_path, pretty_name),
+                     temp);
+    }
+}
+
+
+fn main() {
+    let mut temps = LinkedHashMap::new();
+
+    // CPU temps
+    get_cpu_temps(&mut temps);
+
+    // Drive temps
+    get_drive_temps(&mut temps);
+
+    // Output
+    for (name, temp) in temps {
+        println!("{}:;{} °C", name, temp);
     }
 }

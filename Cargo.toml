@@ -1,7 +1,9 @@
 [package]
-name = "hddtemp_prompt"
+name = "prompt"
 version = "0.1.0"
 authors = ["desbma <desbma@users.noreply.github.com>"]
 edition = "2018"
 
 [dependencies]
+glob = "0.3.0"
+linked-hash-map = "0.5.1"
