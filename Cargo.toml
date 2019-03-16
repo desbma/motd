@@ -1,5 +1,5 @@
 [package]
-name = "prompt"
+name = "motd"
 version = "0.1.0"
 authors = ["desbma <desbma@users.noreply.github.com>"]
 edition = "2018"
