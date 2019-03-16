@@ -1,0 +1,15 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+matrix:
+  allow_failures:
+    - rust: beta
+    - rust: nightly
+notifications:
+  email:
+    recipients:
+      - secure: "sHp7Ge5sLJCkO9LCLmf5PjGgkbOcYpmC7Fz0pYfquHskdf+PxEbIadDAaRqHDvxbo65v7UahSJBzdq9FHVK/khl4LJBQEs39g85Cs1yC2ImVMhVJ8iT9CuCj9em0DPaR7/fsqd5uvZNaMOyKifeResbsvupA4lVtdUKPmmDut3ey22SE8ypddtFedq2lrUdKVSUVjF8PL45fsdqlrtOtELbwybHqZV3umyzrk0lHb/33dLPuad1UBHE4lJdZCbDeIfEza+Hr30zgG13UhfVj9wqyE3ctgwp5fejiFfSCGc5GsRrjifGwJe0y1JxW/9bb5F5X4ZEn/PycKFKHwJz0XJvw5S+s/l4mhSjtKuPf4Ugq4vrYya2h4LZ6pgozPeA2WzHQobOWUuhwOGe7Q+C6su8R3QfW0h/h5qVKcXe6O/96ykcRVkH1pjtTQSVidCSrUdaOzZ8Quz0NO4ujnf0X/SlXwF+RuaxhAfOLh3UUYrjIYf0FcGEDMXTWBjz2O+sQczxb3xeifLmSHrSarncFqXjuKlXT838Eg/cT2o08JhlBbwfIafeWK9Izhd28Cn8uWNrg9H+cGgX0sSwXyBLHB0/zkQU9ir54j1k2FhknQ8zeYPkGjDxENSca9aLJIaU/6s5YP+IqSYJ1EDtJH5BOj4c0wDy1BVflKcA20CnljBY="
+    on_success: always
+    on_failure: always
