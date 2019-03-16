@@ -10,7 +10,23 @@ use std::str::FromStr;
 use glob::glob;
 
 
-fn get_cpu_temps(temps: &mut VecDeque<(String, u32)>) {
+enum SensorType {
+    DRIVE,
+    OTHER,
+}
+
+
+struct SensorTemp {
+    name: String,
+    sensor_type: SensorType,
+    temp: u32,
+}
+
+
+type TempDeque = VecDeque<SensorTemp>;
+
+
+fn get_cpu_temps(temps: &mut TempDeque) {
     for hwmon_entry in glob("/sys/class/hwmon/hwmon*").unwrap() {
         let hwmon_dir = hwmon_entry.unwrap().into_os_string().into_string().unwrap();
         let label_pattern = format!("{}/temp*_label", hwmon_dir);
@@ -23,14 +39,17 @@ fn get_cpu_temps(temps: &mut VecDeque<(String, u32)>) {
             label = label.trim_end().to_string();
 
             // Read temp
-            let input_temp_filepath = format!("{}_input", input_label_filepath[..input_label_filepath.len() - 6].to_owned());  // TODO optimize this
+            let input_temp_filepath = format!("{}_input", input_label_filepath[..input_label_filepath.len() - 6].to_owned());  // TODO optimize this?
             let mut input_temp_file = File::open(input_temp_filepath).unwrap();
             let mut temp_str = String::new();
             input_temp_file.read_to_string(&mut temp_str).unwrap();
             let temp_val = temp_str.trim_end().parse::<u32>().unwrap() / 1000;
 
             // Store temp
-            temps.push_back((label, temp_val));
+            let sensor_temp = SensorTemp {name: label,
+                                          sensor_type: SensorType::OTHER,
+                                          temp: temp_val};
+            temps.push_back(sensor_temp);
         }
     }
 }
@@ -53,7 +72,7 @@ fn normalize_drive_path(path: &str) -> String {
 }
 
 
-fn get_drive_temps(temps: &mut VecDeque<(String, u32)>) {
+fn get_drive_temps(temps: &mut TempDeque) {
     // Connect
     let mut stream = match TcpStream::connect("127.0.0.1:7634") {  // TODO port const
         Ok(s) => s,
@@ -72,14 +91,16 @@ fn get_drive_temps(temps: &mut VecDeque<(String, u32)>) {
         let temp = u32::from_str(drive_data[3]).unwrap();
 
         // Store temp
-        temps.push_back((format!("{} ({})", drive_path, pretty_name),
-                         temp));
+        let sensor_temp = SensorTemp {name: format!("{} ({})", drive_path, pretty_name),
+                                      sensor_type: SensorType::DRIVE,
+                                      temp: temp};
+        temps.push_back(sensor_temp);
     }
 }
 
 
 fn main() {
-    let mut temps: VecDeque<(String, u32)> = VecDeque::new();
+    let mut temps: TempDeque = TempDeque::new();
 
     // CPU temps
     get_cpu_temps(&mut temps);
@@ -88,15 +109,17 @@ fn main() {
     get_drive_temps(&mut temps);
 
     // Output
+    // TODO sub function
+    // TODO coloring
     let mut max_name_len = 0;
-    for (name, _temp) in &temps {
-        let name_len = name.len();
+    for sensor_temp in &temps {
+        let name_len = sensor_temp.name.len();
         if name_len > max_name_len {
             max_name_len = name_len;
         }
     }
-    for (name, temp) in temps {
-        let pad = " ".repeat(max_name_len - name.len());
-        println!("{}: {}{} °C", name, pad, temp);
+    for sensor_temp in temps {
+        let pad = " ".repeat(max_name_len - sensor_temp.name.len());
+        println!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
     }
 }
