@@ -88,7 +88,15 @@ fn main() {
     get_drive_temps(&mut temps);
 
     // Output
+    let mut max_name_len = 0;
+    for (name, _temp) in &temps {
+        let name_len = name.len();
+        if name_len > max_name_len {
+            max_name_len = name_len;
+        }
+    }
     for (name, temp) in temps {
-        println!("{}:;{} °C", name, temp);
+        let pad = " ".repeat(max_name_len - name.len());
+        println!("{}: {}{} °C", name, pad, temp);
     }
 }
