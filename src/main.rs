@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -6,11 +7,10 @@ use std::path::Path;
 use std::process;
 use std::str::FromStr;
 
-use linked_hash_map::LinkedHashMap;
 use glob::glob;
 
 
-fn get_cpu_temps(temps: &mut LinkedHashMap<String, u32>) {
+fn get_cpu_temps(temps: &mut VecDeque<(String, u32)>) {
     for hwmon_entry in glob("/sys/class/hwmon/hwmon*").unwrap() {
         let hwmon_dir = hwmon_entry.unwrap().into_os_string().into_string().unwrap();
         let label_pattern = format!("{}/temp*_label", hwmon_dir);
@@ -23,14 +23,14 @@ fn get_cpu_temps(temps: &mut LinkedHashMap<String, u32>) {
             label = label.trim_end().to_string();
 
             // Read temp
-            let input_temp_filepath = format!("{}_input", input_label_filepath[..input_label_filepath.len() - 6].to_owned());
+            let input_temp_filepath = format!("{}_input", input_label_filepath[..input_label_filepath.len() - 6].to_owned());  // TODO optimize this
             let mut input_temp_file = File::open(input_temp_filepath).unwrap();
             let mut temp_str = String::new();
             input_temp_file.read_to_string(&mut temp_str).unwrap();
             let temp_val = temp_str.trim_end().parse::<u32>().unwrap() / 1000;
 
             // Store temp
-            temps.insert(label, temp_val);
+            temps.push_back((label, temp_val));
         }
     }
 }
@@ -53,7 +53,7 @@ fn normalize_drive_path(path: &str) -> String {
 }
 
 
-fn get_drive_temps(temps: &mut LinkedHashMap<String, u32>) {
+fn get_drive_temps(temps: &mut VecDeque<(String, u32)>) {
     // Connect
     let mut stream = match TcpStream::connect("127.0.0.1:7634") {  // TODO port const
         Ok(s) => s,
@@ -72,14 +72,14 @@ fn get_drive_temps(temps: &mut LinkedHashMap<String, u32>) {
         let temp = u32::from_str(drive_data[3]).unwrap();
 
         // Store temp
-        temps.insert(format!("{} ({})", drive_path, pretty_name),
-                     temp);
+        temps.push_back((format!("{} ({})", drive_path, pretty_name),
+                         temp));
     }
 }
 
 
 fn main() {
-    let mut temps = LinkedHashMap::new();
+    let mut temps: VecDeque<(String, u32)> = VecDeque::new();
 
     // CPU temps
     get_cpu_temps(&mut temps);
