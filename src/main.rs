@@ -7,10 +7,12 @@ use std::path::Path;
 use std::process;
 use std::str::FromStr;
 
+use colored::*;
 use glob::glob;
 
 
 enum SensorType {
+    CPU,
     DRIVE,
     OTHER,
 }
@@ -26,7 +28,7 @@ struct SensorTemp {
 type TempDeque = VecDeque<SensorTemp>;
 
 
-fn get_cpu_temps(temps: &mut TempDeque) {
+fn get_hwmon_temps(temps: &mut TempDeque) {
     for hwmon_entry in glob("/sys/class/hwmon/hwmon*").unwrap() {
         let hwmon_dir = hwmon_entry.unwrap().into_os_string().into_string().unwrap();
         let label_pattern = format!("{}/temp*_label", hwmon_dir);
@@ -38,6 +40,15 @@ fn get_cpu_temps(temps: &mut TempDeque) {
             input_label_file.read_to_string(&mut label).unwrap();
             label = label.trim_end().to_string();
 
+            // Deduce type from name
+            let sensor_type;
+            if label.starts_with("CPU ") || label.starts_with("Core ") {
+                sensor_type = SensorType::CPU;
+            }
+            else {
+                sensor_type = SensorType::OTHER;
+            }
+
             // Read temp
             let input_temp_filepath = format!("{}_input", input_label_filepath[..input_label_filepath.len() - 6].to_owned());  // TODO optimize this?
             let mut input_temp_file = File::open(input_temp_filepath).unwrap();
@@ -47,7 +58,7 @@ fn get_cpu_temps(temps: &mut TempDeque) {
 
             // Store temp
             let sensor_temp = SensorTemp {name: label,
-                                          sensor_type: SensorType::OTHER,
+                                          sensor_type: sensor_type,
                                           temp: temp_val};
             temps.push_back(sensor_temp);
         }
@@ -99,6 +110,29 @@ fn get_drive_temps(temps: &mut TempDeque) {
 }
 
 
+fn colorize_from_temp(string: String, temp: u32, sensor_type: SensorType) -> ColoredString {
+    let warning_temp = match sensor_type {
+        SensorType::CPU => 60,
+        SensorType::DRIVE => 45,
+        SensorType::OTHER => 50,
+    };
+    let critical_temp = match sensor_type {
+        SensorType::CPU => 75,
+        SensorType::DRIVE => 55,
+        SensorType::OTHER => 60,
+    };
+    if temp >= critical_temp {
+        string.red()
+    }
+    else if temp >= warning_temp {
+        string.yellow()
+    }
+    else {
+        string.normal()
+    }
+}
+
+
 fn output_temps(temps: TempDeque) {
     let mut max_name_len = 0;
     for sensor_temp in &temps {
@@ -109,8 +143,8 @@ fn output_temps(temps: TempDeque) {
     }
     for sensor_temp in temps {
         let pad = " ".repeat(max_name_len - sensor_temp.name.len());
-        // TODO coloring
-        println!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
+        let line = format!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
+        println!("{}", colorize_from_temp(line, sensor_temp.temp, sensor_temp.sensor_type));
     }
 }
 
@@ -118,8 +152,8 @@ fn output_temps(temps: TempDeque) {
 fn main() {
     let mut temps: TempDeque = TempDeque::new();
 
-    // CPU temps
-    get_cpu_temps(&mut temps);
+    // Hwmon temps
+    get_hwmon_temps(&mut temps);
 
     // Drive temps
     get_drive_temps(&mut temps);

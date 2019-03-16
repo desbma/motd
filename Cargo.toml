@@ -5,4 +5,5 @@ authors = ["desbma <desbma@users.noreply.github.com>"]
 edition = "2018"
 
 [dependencies]
+colored = "1.7"
 glob = "0.3.0"
