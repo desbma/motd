@@ -10,23 +10,33 @@ use colored::*;
 use glob::glob;
 
 
+/// Type of temperature sensor
 enum SensorType {
+    /// CPU sensor
     CPU,
+    /// Hard drive or SSD/NVM sensor
     DRIVE,
+    /// Other sensors (typically motherboard)
     OTHER,
 }
 
 
+/// Temperature data
 struct SensorTemp {
+    // Name of sensor
     name: String,
+    // Type of sensor
     sensor_type: SensorType,
+    // Temperature value in Celcius
     temp: u32,
 }
 
 
+/// Deque of fetched temperature data
 type TempDeque = VecDeque<SensorTemp>;
 
 
+/// Probe temperatures from hwmon Linux sensors exposed in /sys/class/hwmon/
 fn get_hwmon_temps(temps: &mut TempDeque) {
     for hwmon_entry in glob("/sys/class/hwmon/hwmon*").unwrap() {
         let hwmon_dir = hwmon_entry.unwrap().into_os_string().into_string().unwrap();
@@ -65,6 +75,7 @@ fn get_hwmon_temps(temps: &mut TempDeque) {
 }
 
 
+/// Normalize a drive device path by making it absolute and following links
 fn normalize_drive_path(path: &str) -> String {
     let mut path_string = path.to_string();
     let fs_path = Path::new(path);
@@ -82,7 +93,7 @@ fn normalize_drive_path(path: &str) -> String {
 }
 
 
-// Probe drive temperatures from hddtemp daemon
+/// Probe drive temperatures from hddtemp daemon
 fn get_drive_temps(temps: &mut TempDeque) {
     // Connect
     let mut stream = match TcpStream::connect("127.0.0.1:7634") {  // TODO port const
@@ -110,6 +121,7 @@ fn get_drive_temps(temps: &mut TempDeque) {
 }
 
 
+/// Colorize a string for terminal display according to temperature level
 fn colorize_from_temp(string: String, temp: u32, sensor_type: SensorType) -> ColoredString {
     let warning_temp = match sensor_type {
         SensorType::CPU => 60,
@@ -133,6 +145,7 @@ fn colorize_from_temp(string: String, temp: u32, sensor_type: SensorType) -> Col
 }
 
 
+/// Output all temperatures
 fn output_temps(temps: TempDeque) {
     let mut max_name_len = 0;
     for sensor_temp in &temps {
