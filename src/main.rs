@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fs;
 use std::fs::File;
@@ -38,6 +39,12 @@ type TempDeque = VecDeque<SensorTemp>;
 
 /// Probe temperatures from hwmon Linux sensors exposed in /sys/class/hwmon/
 fn get_hwmon_temps(temps: &mut TempDeque) {
+    // Totally incomplete and arbitary list of sensor names to blacklist
+    // = those that return invalid values on motherboards I own
+    let mut label_blacklist: HashSet<String> = HashSet::new();
+    label_blacklist.insert("SYSTIN".to_string());
+    label_blacklist.insert("CPUTIN".to_string());
+
     for hwmon_entry in glob("/sys/class/hwmon/hwmon*").unwrap() {
         let hwmon_dir = hwmon_entry.unwrap().into_os_string().into_string().unwrap();
         let label_pattern = format!("{}/temp*_label", hwmon_dir);
@@ -48,6 +55,10 @@ fn get_hwmon_temps(temps: &mut TempDeque) {
             let mut input_label_file = File::open(&input_label_filepath).unwrap();
             input_label_file.read_to_string(&mut label).unwrap();
             label = label.trim_end().to_string();
+            if label_blacklist.contains(&label) {
+                // Label in blacklist, exclude
+                continue;
+            }
 
             // Deduce type from name
             let sensor_type;
@@ -63,7 +74,14 @@ fn get_hwmon_temps(temps: &mut TempDeque) {
             let mut input_temp_file = File::open(input_temp_filepath).unwrap();
             let mut temp_str = String::new();
             input_temp_file.read_to_string(&mut temp_str).unwrap();
-            let temp_val = temp_str.trim_end().parse::<u32>().unwrap() / 1000;
+            let temp_val = match temp_str.trim_end().parse::<u32>() {
+                Ok(v) => v / 1000,
+                Err(_e) => continue,  // Some sensors return negative values
+            };
+            if temp_val == 0 {
+                // Exclude negative values
+                continue;
+            }
 
             // Store temp
             let sensor_temp = SensorTemp {name: label,
