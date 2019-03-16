@@ -4,7 +4,6 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::path::Path;
-use std::process;
 use std::str::FromStr;
 
 use colored::*;
@@ -83,11 +82,12 @@ fn normalize_drive_path(path: &str) -> String {
 }
 
 
+// Probe drive temperatures from hddtemp daemon
 fn get_drive_temps(temps: &mut TempDeque) {
     // Connect
     let mut stream = match TcpStream::connect("127.0.0.1:7634") {  // TODO port const
         Ok(s) => s,
-        Err(_e) => process::exit(0),  // TODO use EXIT_SUCCESS
+        Err(_e) => return,
     };
 
     // Read
