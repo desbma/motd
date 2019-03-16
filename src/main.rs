@@ -99,6 +99,22 @@ fn get_drive_temps(temps: &mut TempDeque) {
 }
 
 
+fn output_temps(temps: TempDeque) {
+    let mut max_name_len = 0;
+    for sensor_temp in &temps {
+        let name_len = sensor_temp.name.len();
+        if name_len > max_name_len {
+            max_name_len = name_len;
+        }
+    }
+    for sensor_temp in temps {
+        let pad = " ".repeat(max_name_len - sensor_temp.name.len());
+        // TODO coloring
+        println!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
+    }
+}
+
+
 fn main() {
     let mut temps: TempDeque = TempDeque::new();
 
@@ -109,17 +125,5 @@ fn main() {
     get_drive_temps(&mut temps);
 
     // Output
-    // TODO sub function
-    // TODO coloring
-    let mut max_name_len = 0;
-    for sensor_temp in &temps {
-        let name_len = sensor_temp.name.len();
-        if name_len > max_name_len {
-            max_name_len = name_len;
-        }
-    }
-    for sensor_temp in temps {
-        let pad = " ".repeat(max_name_len - sensor_temp.name.len());
-        println!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
-    }
+    output_temps(temps);
 }
