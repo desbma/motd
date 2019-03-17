@@ -14,10 +14,13 @@ fn main() {
 
     output_title("Memory usage");
 
-    let mut mem_info: mem::MemInfo = mem::MemInfo::new();
+    let mut mem_info = mem::MemInfo::new();
 
     // Get all memory usage info
     mem::get_mem_info(&mut mem_info);
+
+    // Output memory usage
+    mem::output_mem(mem_info);
 
     //
     // Temps
@@ -25,7 +28,7 @@ fn main() {
 
     output_title("Hardware temperatures");
 
-    let mut temps: temp::TempDeque = temp::TempDeque::new();
+    let mut temps = temp::TempDeque::new();
 
     // Hwmon temps
     temp::get_hwmon_temps(&mut temps);
