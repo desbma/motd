@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+mod mem;
 mod temp;
 
 
@@ -15,10 +14,10 @@ fn main() {
 
     output_title("Memory usage");
 
-    let mut mem_info: HashMap<String, u32> = HashMap::new();
+    let mut mem_info: mem::MemInfo = mem::MemInfo::new();
 
-    // Geta all memory usage info
-    //get_mem_info(&mut mem_info);
+    // Get all memory usage info
+    mem::get_mem_info(&mut mem_info);
 
     //
     // Temps
