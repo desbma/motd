@@ -7,7 +7,7 @@ use std::net::TcpStream;
 use std::path::Path;
 use std::str::FromStr;
 
-use colored::*;
+use ansi_term::Colour::*;
 use glob::glob;
 
 
@@ -140,7 +140,7 @@ pub fn get_drive_temps(temps: &mut TempDeque) {
 
 
 /// Colorize a string for terminal display according to temperature level
-fn colorize_from_temp(string: String, temp: u32, sensor_type: SensorType) -> ColoredString {
+fn colorize_from_temp(string: String, temp: u32, sensor_type: SensorType) -> String {
     let warning_temp = match sensor_type {
         SensorType::CPU => 60,
         SensorType::DRIVE => 45,
@@ -152,13 +152,13 @@ fn colorize_from_temp(string: String, temp: u32, sensor_type: SensorType) -> Col
         SensorType::OTHER => 60,
     };
     if temp >= critical_temp {
-        string.red()
+        Red.paint(string).to_string()
     }
     else if temp >= warning_temp {
-        string.yellow()
+        Yellow.paint(string).to_string()
     }
     else {
-        string.normal()
+        string
     }
 }
 
