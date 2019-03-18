@@ -1,6 +1,7 @@
 use std::thread;
 
 mod mem;
+mod systemd;
 mod temp;
 
 
@@ -68,5 +69,17 @@ fn main() {
 
         // Output temps
         temp::output_temps(temps);
+
+
+        // Get systemd failed units
+        let mut failed_units = systemd::FailedUnits::new();
+        systemd::get_failed_units(&mut failed_units);
+
+        if !failed_units.is_empty() {
+            output_title("Systemd failed units");
+
+            // Output them
+            systemd::output_failed_units(failed_units);
+        }
     }
 }
