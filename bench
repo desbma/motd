@@ -3,6 +3,6 @@
 set -o pipefail
 
 
-#time bash -c 'for i in {0..1000}; do ./target/release/motd > /dev/null; done'
+time bash -c 'for i in {0..1000}; do ./target/release/motd > /dev/null; done'
 
 python3 -m timeit -s 'import subprocess; cmd = ("./target/release/motd",)' 'subprocess.call(cmd, stdout=subprocess.DEVNULL)'

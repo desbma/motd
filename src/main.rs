@@ -1,3 +1,5 @@
+use std::thread;
+
 mod mem;
 mod temp;
 
@@ -14,36 +16,57 @@ fn output_title(title: &str) {
 
 
 fn main() {
-    //
-    // Memory
-    //
+    if cfg!(feature = "worker_thread") {
+        let mut temps = temp::TempDeque::new();
 
-    output_title("Memory usage");
+        // Fetch temps in a background thread
 
-    let mut mem_info = mem::MemInfo::new();
+        let temp_fetcher_thread = thread::Builder::new().name("temp_fetcher".to_string()).spawn(move || {
+            // Get temps
+            temp::get_hwmon_temps(&mut temps);
+            temp::get_drive_temps(&mut temps);
 
-    // Get all memory usage info
-    mem::get_mem_info(&mut mem_info);
+            temps
+        }).unwrap();
 
-    // Output memory usage
-    mem::output_mem(mem_info, TERM_COLUMNS);
 
-    //
-    // Temps
-    //
+        output_title("Memory usage");
 
-    output_title("Hardware temperatures");
+        let mut mem_info = mem::MemInfo::new();
 
-    let mut temps = temp::TempDeque::new();
+        // Get all memory usage info
+        mem::get_mem_info(&mut mem_info);
 
-    // TODO fetch temps in a background thread while we display other stuff
+        // Output memory usage
+        mem::output_mem(mem_info, TERM_COLUMNS);
 
-    // Hwmon temps
-    temp::get_hwmon_temps(&mut temps);
 
-    // Drive temps
-    temp::get_drive_temps(&mut temps);
+        output_title("Hardware temperatures");
 
-    // Output temps
-    temp::output_temps(temps);
+        // Output temps
+        temps = temp_fetcher_thread.join().unwrap();
+        temp::output_temps(temps);
+    }
+    else {
+        output_title("Memory usage");
+
+        let mut mem_info = mem::MemInfo::new();
+
+        // Get all memory usage info
+        mem::get_mem_info(&mut mem_info);
+
+        // Output memory usage
+        mem::output_mem(mem_info, TERM_COLUMNS);
+
+
+        output_title("Hardware temperatures");
+
+        // Get temps
+        let mut temps = temp::TempDeque::new();
+        temp::get_hwmon_temps(&mut temps);
+        temp::get_drive_temps(&mut temps);
+
+        // Output temps
+        temp::output_temps(temps);
+    }
 }
