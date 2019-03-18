@@ -37,11 +37,31 @@ pub fn output_mem(mem_info: MemInfo) {
     let free_mem_mb = mem_info["MemFree"] / 1024;
     let used_mem_mb  = total_mem_mb - cache_mem_mb - buffer_mem_mb - free_mem_mb;
 
-    println!("{:.1} ({:.1}%) [{}{}{}] {:.1}GB ",
-             used_mem_mb as f64 / 1024.0,
-             100.0 * used_mem_mb as f64 / total_mem_mb as f64,
-             "█".repeat((MEMBAR_LENGTH * used_mem_mb / total_mem_mb) as usize),
-             "█".repeat((MEMBAR_LENGTH * (cache_mem_mb + buffer_mem_mb) / total_mem_mb) as usize).dimmed(),
-             " ".repeat((MEMBAR_LENGTH * free_mem_mb / total_mem_mb) as usize),
+    // TODO autotruncate bar texts if needed
+    // TODO center bar text
+
+    let used_bar_text = format!("{:.1}GB ({:.1}%)",
+                                used_mem_mb as f64 / 1024.0,
+                                100.0 * used_mem_mb as f64 / total_mem_mb as f64).reversed();
+    let used_bar = "█".repeat((MEMBAR_LENGTH * used_mem_mb / total_mem_mb) as usize - used_bar_text.len());
+
+    let cached_bar_text = format!("{:.1}GB ({:.1}%)",
+                                  (cache_mem_mb + buffer_mem_mb) as f64 / 1024.0,
+                                  100.0 * (cache_mem_mb + buffer_mem_mb) as f64 / total_mem_mb as f64).dimmed().reversed();
+    let cached_bar = "█".repeat((MEMBAR_LENGTH * (cache_mem_mb + buffer_mem_mb) / total_mem_mb) as usize - cached_bar_text.len()).dimmed();
+
+    let free_bar_text = format!("{:.1}GB ({:.1}%)",
+                                free_mem_mb as f64 / 1024.0,
+                                100.0 * free_mem_mb as f64 / total_mem_mb as f64);
+    let free_bar = " ".repeat((MEMBAR_LENGTH * free_mem_mb / total_mem_mb) as usize);
+
+
+    println!("[{}{}{}{}{}{}] {:.1}GB ",
+             used_bar_text,
+             used_bar,
+             cached_bar_text,
+             cached_bar,
+             free_bar_text,
+             free_bar,
              total_mem_mb as f64 / 1024.0);
 }
