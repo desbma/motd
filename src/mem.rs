@@ -7,10 +7,6 @@ use std::str::FromStr;
 use ansi_term::Style;
 
 
-/// Length of memory bar in chars
-const MEMBAR_LENGTH : u64 = 70;
-
-
 /// Map of memory usage info, unit is kB of page count
 pub type MemInfo = HashMap<String, u64>;
 
@@ -49,7 +45,7 @@ struct BarPart {
 
 
 /// Print memory bar
-fn output_bar(parts: VecDeque<BarPart>, length: u64) {
+fn output_bar(parts: VecDeque<BarPart>, length: usize) {
     let mut full_bar: String = "[".to_string();
     for part in parts {
         let part_len = ((length - 2) as f32 * part.prct / 100.0) as usize;
@@ -64,21 +60,16 @@ fn output_bar(parts: VecDeque<BarPart>, length: u64) {
             }
         }
 
+        // Center bar text inside fill chars
         let label_len = label.len();
-        if label_len <= part_len {
-            // Center bar text inside fill chars
-            let fill_count_before = (part_len - label_len) / 2;
-            let mut fill_count_after = fill_count_before;
-            if (part_len - label_len) % 2 == 1 {
-                fill_count_after += 1;
-            }
-            full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_before)).to_string();
-            full_bar += &part.text_style.paint(&label).to_string();
-            full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_after)).to_string();
+        let fill_count_before = (part_len - label_len) / 2;
+        let mut fill_count_after = fill_count_before;
+        if (part_len - label_len) % 2 == 1 {
+            fill_count_after += 1;
         }
-        else {
-            full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(part_len)).to_string();
-        }
+        full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_before)).to_string();
+        full_bar += &part.text_style.paint(&label).to_string();
+        full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_after)).to_string();
     }
 
     println!("{}]", full_bar);
@@ -86,7 +77,7 @@ fn output_bar(parts: VecDeque<BarPart>, length: u64) {
 
 
 /// Output all memory info
-pub fn output_mem(mem_info: MemInfo) {
+pub fn output_mem(mem_info: MemInfo, term_width: usize) {
     let total_mem_mb = mem_info["MemTotal"] / 1024;
     let cache_mem_mb = mem_info["Cached"] / 1024;
     let buffer_mem_mb = mem_info["Buffers"] / 1024;
@@ -141,5 +132,5 @@ pub fn output_mem(mem_info: MemInfo) {
                                 fill_style: Style::new(),
                                 bar_char: ' '});
 
-    output_bar(bar_parts, MEMBAR_LENGTH);
+    output_bar(bar_parts, term_width);
 }
