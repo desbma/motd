@@ -9,7 +9,7 @@ use colored::*;
 const MEMBAR_LENGTH : u64 = 70;
 
 
-/// Map of memory usage info
+/// Map of memory usage info, unit is kB of page count
 pub type MemInfo = HashMap<String, u64>;
 
 
@@ -36,6 +36,23 @@ pub fn output_mem(mem_info: MemInfo) {
     let buffer_mem_mb = mem_info["Buffers"] / 1024;
     let free_mem_mb = mem_info["MemFree"] / 1024;
     let used_mem_mb  = total_mem_mb - cache_mem_mb - buffer_mem_mb - free_mem_mb;
+
+    let keys = ["Dirty", "Cached", "Buffers"];
+    // TODO find a oneliner for this
+    let mut max_key_len = 0;
+    for &key in keys.iter() {
+        let key_len = key.len();
+        if key_len > max_key_len {
+            max_key_len = key_len;
+        }
+    }
+    for &key in keys.iter() {
+        println!("{}:{}{: >6.3} GB ({: >4.1}%)",
+                 key,
+                 " ".repeat(1 + max_key_len - key.len()),
+                 mem_info[key] as f32 / (1024.0 * 1024.0),
+                 100.0 * mem_info[key] as f32 / mem_info["MemTotal"] as f32);
+    }
 
     // TODO autotruncate bar texts if needed
     // TODO center bar text

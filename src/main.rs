@@ -3,7 +3,7 @@ mod temp;
 
 
 fn output_title(title: &str) {
-    println!("──────── {}", title);
+    println!("\n──────── {}", title);
 }
 
 
