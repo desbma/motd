@@ -1,12 +1,12 @@
 MOTD
 ====
 
-Dynamically generate MOTD SSH banner
+Dynamically generate Linux MOTD SSH banner
 
 
 ## Goals
 
-* Should be very fast (no perceived visual latency)
+* Should be very fast (no perceived visual latency, even under high load)
 * Display relevant system information, and colorize anormal measures
 * Be reasonably portable across Linux boxes
 * Learn Rust :)

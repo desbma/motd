@@ -36,6 +36,8 @@ fn main() {
 
     let mut temps = temp::TempDeque::new();
 
+    // TODO fetch temps in a background thread while we display other stuff
+
     // Hwmon temps
     temp::get_hwmon_temps(&mut temps);
 
