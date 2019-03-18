@@ -38,14 +38,7 @@ pub fn output_mem(mem_info: MemInfo) {
     let used_mem_mb  = total_mem_mb - cache_mem_mb - buffer_mem_mb - free_mem_mb;
 
     let keys = ["Dirty", "Cached", "Buffers"];
-    // TODO find a oneliner for this
-    let mut max_key_len = 0;
-    for &key in keys.iter() {
-        let key_len = key.len();
-        if key_len > max_key_len {
-            max_key_len = key_len;
-        }
-    }
+    let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
     for &key in keys.iter() {
         println!("{}:{}{: >6.3} GB ({: >4.1}%)",
                  key,
