@@ -11,6 +11,12 @@ Dynamically generate MOTD SSH banner
 * Be reasonably portable across Linux boxes
 * Learn Rust :)
 
+## Screenshots
+
+** Work in progress **
+
+[![Imgur](https://i.imgur.com/WQfwVJPh.png)](https://i.imgur.com/WQfwVJP.png)
+
 
 ## License
 
