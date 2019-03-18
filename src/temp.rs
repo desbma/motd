@@ -165,13 +165,7 @@ fn colorize_from_temp(string: String, temp: u32, sensor_type: SensorType) -> Col
 
 /// Output all temperatures
 pub fn output_temps(temps: TempDeque) {
-    let mut max_name_len = 0;
-    for sensor_temp in &temps {
-        let name_len = sensor_temp.name.len();
-        if name_len > max_name_len {
-            max_name_len = name_len;
-        }
-    }
+    let max_name_len = temps.iter().max_by_key(|x| x.name.len()).unwrap().name.len();
     for sensor_temp in temps {
         let pad = " ".repeat(max_name_len - sensor_temp.name.len());
         let line = format!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
