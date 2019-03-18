@@ -18,11 +18,18 @@ fn output_title(title: &str) {
 
 fn main() {
     if cfg!(feature = "worker_thread") {
-        let mut temps = temp::TempDeque::new();
+        // Fetch systemd failed units in a background thread
+        let mut failed_units = systemd::FailedUnits::new();
+        let systemd_worker_thread = thread::Builder::new().name("systemd_worker".to_string()).spawn(move || {
+            // Get systemd failed units
+            systemd::get_failed_units(&mut failed_units);
+
+            failed_units
+        }).unwrap();
 
         // Fetch temps in a background thread
-
-        let temp_fetcher_thread = thread::Builder::new().name("temp_fetcher".to_string()).spawn(move || {
+        let mut temps = temp::TempDeque::new();
+        let temp_worker_thread = thread::Builder::new().name("temp_worker".to_string()).spawn(move || {
             // Get temps
             temp::get_hwmon_temps(&mut temps);
             temp::get_drive_temps(&mut temps);
@@ -45,8 +52,17 @@ fn main() {
         output_title("Hardware temperatures");
 
         // Output temps
-        temps = temp_fetcher_thread.join().unwrap();
+        temps = temp_worker_thread.join().unwrap();
         temp::output_temps(temps);
+
+        // Get failed units
+        failed_units = systemd_worker_thread.join().unwrap();
+        if !failed_units.is_empty() {
+            output_title("Systemd failed units");
+
+            // Output them
+            systemd::output_failed_units(failed_units);
+        }
     }
     else {
         output_title("Memory usage");
