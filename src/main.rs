@@ -1,3 +1,4 @@
+use std::sync::mpsc;
 use std::thread;
 
 mod mem;
@@ -19,22 +20,22 @@ fn output_title(title: &str) {
 fn main() {
     if cfg!(feature = "worker_thread") {
         // Fetch systemd failed units in a background thread
+        let (units_tx, units_rx) = mpsc::channel();
         let mut failed_units = systemd::FailedUnits::new();
-        let systemd_worker_thread = thread::Builder::new().name("systemd_worker".to_string()).spawn(move || {
+        thread::Builder::new().name("systemd_worker".to_string()).spawn(move || {
             // Get systemd failed units
             systemd::get_failed_units(&mut failed_units);
-
-            failed_units
+            units_tx.send(failed_units).unwrap();
         }).unwrap();
 
         // Fetch temps in a background thread
+        let (temps_tx, temps_rx) = mpsc::channel();
         let mut temps = temp::TempDeque::new();
-        let temp_worker_thread = thread::Builder::new().name("temp_worker".to_string()).spawn(move || {
+        thread::Builder::new().name("temp_worker".to_string()).spawn(move || {
             // Get temps
             temp::get_hwmon_temps(&mut temps);
             temp::get_drive_temps(&mut temps);
-
-            temps
+            temps_tx.send(temps).unwrap();
         }).unwrap();
 
 
@@ -52,11 +53,11 @@ fn main() {
         output_title("Hardware temperatures");
 
         // Output temps
-        temps = temp_worker_thread.join().unwrap();
+        temps = temps_rx.recv().unwrap();
         temp::output_temps(temps);
 
         // Get failed units
-        failed_units = systemd_worker_thread.join().unwrap();
+        failed_units = units_rx.recv().unwrap();
         if !failed_units.is_empty() {
             output_title("Systemd failed units");
 

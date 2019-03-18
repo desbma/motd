@@ -5,7 +5,7 @@ authors = ["desbma <desbma@users.noreply.github.com>"]
 edition = "2018"
 
 [features]
-default = []
+default = ["worker_thread"]
 worker_thread = []
 
 [dependencies]
