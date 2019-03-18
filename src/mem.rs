@@ -37,14 +37,19 @@ pub fn output_mem(mem_info: MemInfo) {
     let free_mem_mb = mem_info["MemFree"] / 1024;
     let used_mem_mb  = total_mem_mb - cache_mem_mb - buffer_mem_mb - free_mem_mb;
 
-    let keys = ["Dirty", "Cached", "Buffers"];
+    let keys = ["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"];
     let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
     for &key in keys.iter() {
-        println!("{}: {}{: >5} MB ({: >4.1}%)",
-                 key,
-                 " ".repeat(max_key_len - key.len()),
-                 mem_info[key] / 1024,
-                 100.0 * mem_info[key] as f32 / mem_info["MemTotal"] as f32);
+        print!("{}: {}{: >5} MB",
+               key,
+               " ".repeat(max_key_len - key.len()),
+               mem_info[key] / 1024);
+        if key != "MemTotal" {
+            println!(" ({: >4.1}%)", 100.0 * mem_info[key] as f32 / mem_info["MemTotal"] as f32);
+        }
+        else {
+            println!("");
+        }
     }
     // TODO swap
 
@@ -78,13 +83,11 @@ pub fn output_mem(mem_info: MemInfo) {
     }
     let free_bar = " ".repeat(free_bar_len);
 
-
-    println!("[{}{}{}{}{}{}] {:.1}GB ",
+    println!("[{}{}{}{}{}{}]",
              used_bar_text,
              used_bar,
              cached_bar_text,
              cached_bar,
              free_bar_text,
-             free_bar,
-             total_mem_mb as f32 / 1024.0);
+             free_bar);
 }
