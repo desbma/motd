@@ -36,7 +36,7 @@ pub fn get_mem_info(mem_info: &mut MemInfo) {
 /// Memory bar section
 struct BarPart {
     /// Section text
-    label: String,
+    label: Vec<String>,
     /// Percentage of full bar this section should fill
     prct: f32,
     /// Bar text style
@@ -52,18 +52,36 @@ struct BarPart {
 fn output_bar(parts: VecDeque<BarPart>, length: u64) {
     let mut full_bar: String = "[".to_string();
     for part in parts {
-        let part_len = (length as f32 * part.prct / 100.0) as usize;
-        if part.label.len() <= part_len {
-            // TODO center bar text
-            full_bar += &part.text_style.paint(&part.label).to_string();
-            full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(part_len - part.label.len())).to_string();
+        let part_len = ((length - 2) as f32 * part.prct / 100.0) as usize;
+        // Build longest label that fits
+        let mut label = String::new();
+        for label_part in part.label {
+            if label.len() + label_part.len() <= part_len {
+                label += &label_part;
+            }
+            else {
+                break;
+            }
+        }
+
+        let label_len = label.len();
+        if label_len <= part_len {
+            // Center bar text inside fill chars
+            let fill_count_before = (part_len - label_len) / 2;
+            let mut fill_count_after = fill_count_before;
+            if (part_len - label_len) % 2 == 1 {
+                fill_count_after += 1;
+            }
+            full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_before)).to_string();
+            full_bar += &part.text_style.paint(&label).to_string();
+            full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_after)).to_string();
         }
         else {
             full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(part_len)).to_string();
         }
     }
 
-    println!("{}", full_bar);
+    println!("{}]", full_bar);
 }
 
 
@@ -94,9 +112,9 @@ pub fn output_mem(mem_info: MemInfo) {
     let mut bar_parts = VecDeque::new();
 
     let used_prct = 100.0 * used_mem_mb as f32 / total_mem_mb as f32;
-    let used_bar_text = format!("{:.1}GB ({:.1}%)",
-                                used_mem_mb as f32 / 1024.0,
-                                used_prct);
+    let used_bar_text: Vec<String> = vec!["Used".to_string(),
+                                          format!(" {:.1}GB", used_mem_mb as f32 / 1024.0),
+                                          format!(" ({:.1}%)", used_prct)];
     bar_parts.push_back(BarPart{label: used_bar_text,
                                 prct: used_prct,
                                 text_style: Style::new().reverse(),
@@ -104,9 +122,9 @@ pub fn output_mem(mem_info: MemInfo) {
                                 bar_char: '█'});
 
     let cached_prct = 100.0 * (cache_mem_mb + buffer_mem_mb) as f32 / total_mem_mb as f32;
-    let cached_bar_text = format!("{:.1}GB ({:.1}%)",
-                                  (cache_mem_mb + buffer_mem_mb) as f32 / 1024.0,
-                                  cached_prct);
+    let cached_bar_text: Vec<String> = vec!["Cached".to_string(),
+                                            format!(" {:.1}GB", (cache_mem_mb + buffer_mem_mb) as f32 / 1024.0),
+                                            format!(" ({:.1}%)", cached_prct)];
     bar_parts.push_back(BarPart{label: cached_bar_text,
                                 prct: cached_prct,
                                 text_style: Style::new().dimmed().reverse(),
@@ -114,9 +132,9 @@ pub fn output_mem(mem_info: MemInfo) {
                                 bar_char: '█'});
 
     let free_prct = 100.0 * free_mem_mb as f32 / total_mem_mb as f32;
-    let free_bar_text = format!("{:.1}GB ({:.1}%)",
-                                free_mem_mb as f32 / 1024.0,
-                                free_prct);
+    let free_bar_text: Vec<String> = vec!["Free".to_string(),
+                                          format!(" {:.1}GB", free_mem_mb as f32 / 1024.0),
+                                          format!(" ({:.1}%)", free_prct)];
     bar_parts.push_back(BarPart{label: free_bar_text,
                                 prct: free_prct,
                                 text_style: Style::new(),
