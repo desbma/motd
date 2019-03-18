@@ -13,9 +13,9 @@ Dynamically generate MOTD SSH banner
 
 ## Screenshots
 
-** Work in progress **
+**Work in progress**
 
-[![Imgur](https://i.imgur.com/WQfwVJPh.png)](https://i.imgur.com/WQfwVJP.png)
+[![Imgur](https://i.imgur.com/WQfwVJPl.png)](https://i.imgur.com/WQfwVJP.png)
 
 
 ## License
