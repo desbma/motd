@@ -1,6 +1,7 @@
 use std::sync::mpsc;
 use std::thread;
 
+mod load;
 mod mem;
 mod systemd;
 mod temp;
@@ -39,6 +40,15 @@ fn main() {
         }).unwrap();
 
 
+        output_title("Load");
+
+        // Get load info
+        let load_info = load::get_load_info();
+
+        // Output load info
+        load::output_load_info(load_info);
+
+
         output_title("Memory usage");
 
         let mut mem_info = mem::MemInfo::new();
@@ -66,6 +76,15 @@ fn main() {
         }
     }
     else {
+        output_title("Load");
+
+        // Get load info
+        let load_info = load::get_load_info();
+
+        // Output load info
+        load::output_load_info(load_info);
+
+
         output_title("Memory usage");
 
         let mut mem_info = mem::MemInfo::new();
