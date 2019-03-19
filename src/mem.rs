@@ -78,12 +78,11 @@ fn output_bar(parts: VecDeque<BarPart>, length: usize) {
 
 /// Output all memory info
 pub fn output_mem(mem_info: MemInfo, term_width: usize) {
-    let total_mem_mb = mem_info["MemTotal"] / 1024;
-    let cache_mem_mb = mem_info["Cached"] / 1024;
-    let buffer_mem_mb = mem_info["Buffers"] / 1024;
-    let free_mem_mb = mem_info["MemFree"] / 1024;
-    let used_mem_mb  = total_mem_mb - cache_mem_mb - buffer_mem_mb - free_mem_mb;
+    //
+    // Memory
+    //
 
+    // TODO factorize to subfunction
     let keys = ["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"];
     let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
     for &key in keys.iter() {
@@ -98,39 +97,93 @@ pub fn output_mem(mem_info: MemInfo, term_width: usize) {
             println!("");
         }
     }
-    // TODO swap
 
-    let mut bar_parts = VecDeque::new();
+    let total_mem_mb = mem_info["MemTotal"] / 1024;
+    let cache_mem_mb = mem_info["Cached"] / 1024;
+    let buffer_mem_mb = mem_info["Buffers"] / 1024;
+    let free_mem_mb = mem_info["MemFree"] / 1024;
+    let used_mem_mb  = total_mem_mb - cache_mem_mb - buffer_mem_mb - free_mem_mb;
+
+    let mut mem_bar_parts = VecDeque::new();
 
     let used_prct = 100.0 * used_mem_mb as f32 / total_mem_mb as f32;
     let used_bar_text: Vec<String> = vec!["Used".to_string(),
                                           format!(" {:.1}GB", used_mem_mb as f32 / 1024.0),
                                           format!(" ({:.1}%)", used_prct)];
-    bar_parts.push_back(BarPart{label: used_bar_text,
-                                prct: used_prct,
-                                text_style: Style::new().reverse(),
-                                fill_style: Style::new(),
-                                bar_char: '█'});
+    mem_bar_parts.push_back(BarPart{label: used_bar_text,
+                                    prct: used_prct,
+                                    text_style: Style::new().reverse(),
+                                    fill_style: Style::new(),
+                                    bar_char: '█'});
 
     let cached_prct = 100.0 * (cache_mem_mb + buffer_mem_mb) as f32 / total_mem_mb as f32;
     let cached_bar_text: Vec<String> = vec!["Cached".to_string(),
                                             format!(" {:.1}GB", (cache_mem_mb + buffer_mem_mb) as f32 / 1024.0),
                                             format!(" ({:.1}%)", cached_prct)];
-    bar_parts.push_back(BarPart{label: cached_bar_text,
-                                prct: cached_prct,
-                                text_style: Style::new().dimmed().reverse(),
-                                fill_style: Style::new().dimmed(),
-                                bar_char: '█'});
+    mem_bar_parts.push_back(BarPart{label: cached_bar_text,
+                                    prct: cached_prct,
+                                    text_style: Style::new().dimmed().reverse(),
+                                    fill_style: Style::new().dimmed(),
+                                    bar_char: '█'});
 
     let free_prct = 100.0 * free_mem_mb as f32 / total_mem_mb as f32;
     let free_bar_text: Vec<String> = vec!["Free".to_string(),
                                           format!(" {:.1}GB", free_mem_mb as f32 / 1024.0),
                                           format!(" ({:.1}%)", free_prct)];
-    bar_parts.push_back(BarPart{label: free_bar_text,
-                                prct: free_prct,
-                                text_style: Style::new(),
-                                fill_style: Style::new(),
-                                bar_char: ' '});
+    mem_bar_parts.push_back(BarPart{label: free_bar_text,
+                                    prct: free_prct,
+                                    text_style: Style::new(),
+                                    fill_style: Style::new(),
+                                    bar_char: ' '});
 
-    output_bar(bar_parts, term_width);
+    output_bar(mem_bar_parts, term_width);
+
+    //
+    // Swap
+    //
+
+    if mem_info["SwapTotal"] > 0 {
+        let keys = ["SwapTotal", "SwapFree"];
+        let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
+        for &key in keys.iter() {
+            print!("{}: {}{: >5} MB",
+                   key,
+                   " ".repeat(max_key_len - key.len()),
+                   mem_info[key] / 1024);
+            if key != "SwapTotal" {
+                println!(" ({: >4.1}%)", 100.0 * mem_info[key] as f32 / mem_info["SwapTotal"] as f32);
+            }
+            else {
+                println!("");
+            }
+        }
+
+        let total_swap_mb = mem_info["SwapTotal"] / 1024;
+        let free_swap_mb = mem_info["SwapFree"] / 1024;
+        let used_swap_mb  = total_swap_mb - free_swap_mb;
+
+        let mut swap_bar_parts = VecDeque::new();
+
+        let used_prct = 100.0 * used_swap_mb as f32 / total_swap_mb as f32;
+        let used_bar_text: Vec<String> = vec!["Used".to_string(),
+                                              format!(" {:.1}GB", used_swap_mb as f32 / 1024.0),
+                                              format!(" ({:.1}%)", used_prct)];
+        swap_bar_parts.push_back(BarPart{label: used_bar_text,
+                                         prct: used_prct,
+                                         text_style: Style::new().reverse(),
+                                         fill_style: Style::new(),
+                                         bar_char: '█'});
+
+        let free_prct = 100.0 * free_swap_mb as f32 / total_swap_mb as f32;
+        let free_bar_text: Vec<String> = vec!["Swap free".to_string(),
+                                              format!(" {:.1}GB", free_swap_mb as f32 / 1024.0),
+                                              format!(" ({:.1}%)", free_prct)];
+        swap_bar_parts.push_back(BarPart{label: free_bar_text,
+                                         prct: free_prct,
+                                         text_style: Style::new(),
+                                         fill_style: Style::new(),
+                                         bar_char: ' '});
+
+        output_bar(swap_bar_parts, term_width);
+    }
 }
