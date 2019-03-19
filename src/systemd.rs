@@ -9,6 +9,7 @@ use ansi_term::Colour::*;
 pub type FailedUnits = VecDeque<String>;
 
 
+/// Get name of Systemd units in failed state
 pub fn get_failed_units(units: &mut FailedUnits) {
     let output = Command::new("systemctl")
                           .args(&["--no-legend", "--failed"])
@@ -27,6 +28,7 @@ pub fn get_failed_units(units: &mut FailedUnits) {
 }
 
 
+/// Output names of Systemd units in failed state
 pub fn output_failed_units(units: FailedUnits) {
     for unit in units {
         println!("{}", Red.paint(unit));
