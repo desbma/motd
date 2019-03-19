@@ -8,6 +8,9 @@ edition = "2018"
 default = ["worker_thread"]
 worker_thread = []
 
+[profile.release]
+panic = "abort"
+
 [dependencies]
 ansi_term = "0.11"
 glob = "0.3.0"
