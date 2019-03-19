@@ -76,27 +76,31 @@ fn output_bar(parts: VecDeque<BarPart>, length: usize) {
 }
 
 
-/// Output all memory info
-pub fn output_mem(mem_info: MemInfo, term_width: usize) {
-    //
-    // Memory
-    //
-
-    // TODO factorize to subfunction
-    let keys = ["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"];
+/// Print memory stat numbers
+fn output_mem_stats(mem_info: &MemInfo, keys: Vec<&str>, total_key: &str) {
     let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
     for &key in keys.iter() {
         print!("{}: {}{: >5} MB",
                key,
                " ".repeat(max_key_len - key.len()),
                mem_info[key] / 1024);
-        if key != "MemTotal" {
-            println!(" ({: >4.1}%)", 100.0 * mem_info[key] as f32 / mem_info["MemTotal"] as f32);
+        if key != total_key {
+            println!(" ({: >4.1}%)", 100.0 * mem_info[key] as f32 / mem_info[total_key] as f32);
         }
         else {
             println!("");
         }
     }
+}
+
+
+/// Output all memory info
+pub fn output_mem(mem_info: MemInfo, term_width: usize) {
+    //
+    // Memory
+    //
+
+    output_mem_stats(&mem_info, vec!["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"], "MemTotal");
 
     let total_mem_mb = mem_info["MemTotal"] / 1024;
     let cache_mem_mb = mem_info["Cached"] / 1024;
@@ -143,20 +147,7 @@ pub fn output_mem(mem_info: MemInfo, term_width: usize) {
     //
 
     if mem_info["SwapTotal"] > 0 {
-        let keys = ["SwapTotal", "SwapFree"];
-        let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
-        for &key in keys.iter() {
-            print!("{}: {}{: >5} MB",
-                   key,
-                   " ".repeat(max_key_len - key.len()),
-                   mem_info[key] / 1024);
-            if key != "SwapTotal" {
-                println!(" ({: >4.1}%)", 100.0 * mem_info[key] as f32 / mem_info["SwapTotal"] as f32);
-            }
-            else {
-                println!("");
-            }
-        }
+        output_mem_stats(&mem_info, vec!["SwapTotal", "SwapFree"], "SwapTotal");
 
         let total_swap_mb = mem_info["SwapTotal"] / 1024;
         let free_swap_mb = mem_info["SwapFree"] / 1024;
