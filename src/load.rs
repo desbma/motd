@@ -52,7 +52,7 @@ fn colorize_load(load: f32, cpu_count: usize) -> String  {
 
 /// Output load information
 pub fn output_load_info(load_info: LoadInfo) {
-    let cpu_count = num_cpus::get_physical();
+    let cpu_count = num_cpus::get();
     println!("Load avg 1min: {}, 5 min: {}, 15 min: {}",
              colorize_load(load_info.load_avg_1m, cpu_count),
              colorize_load(load_info.load_avg_5m, cpu_count),
