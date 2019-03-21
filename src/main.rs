@@ -1,6 +1,7 @@
 use std::sync::mpsc;
 use std::thread;
 
+mod fs;
 mod load;
 mod mem;
 mod systemd;
@@ -60,6 +61,15 @@ fn main() {
         mem::output_mem(mem_info, TERM_COLUMNS);
 
 
+        output_title("Filesystem usage");
+
+        // Get filesystem info
+        let fs_info = fs::get_fs_info();
+
+        // Output filesystem info
+        fs::output_fs_info(fs_info);
+
+
         output_title("Hardware temperatures");
 
         // Output temps
@@ -105,6 +115,15 @@ fn main() {
 
         // Output temps
         temp::output_temps(temps);
+
+
+        output_title("Filesystem usage");
+
+        // Get filesystem info
+        let fs_info = fs::get_fs_info();
+
+        // Output filesystem info
+        fs::output_fs_info(fs_info);
 
 
         // Get systemd failed units
