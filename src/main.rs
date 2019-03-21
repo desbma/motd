@@ -67,7 +67,7 @@ fn main() {
         let fs_info = fs::get_fs_info();
 
         // Output filesystem info
-        fs::output_fs_info(fs_info);
+        fs::output_fs_info(fs_info, TERM_COLUMNS);
 
 
         output_title("Hardware temperatures");
@@ -123,7 +123,7 @@ fn main() {
         let fs_info = fs::get_fs_info();
 
         // Output filesystem info
-        fs::output_fs_info(fs_info);
+        fs::output_fs_info(fs_info, TERM_COLUMNS);
 
 
         // Get systemd failed units

@@ -1,7 +1,9 @@
+use std::cmp;
 use std::ffi::{CStr,CString};
 use std::io;
 use std::mem;
 
+use ansi_term::Style;
 use bytesize::ByteSize;
 use libc::{endmntent,getmntent,setmntent,statvfs};
 
@@ -64,6 +66,10 @@ pub fn get_fs_info() -> FsInfoVec {
             Ok(fsi) => fsi,
             Err(_e) => continue,
         };
+        if new_fs_info.total_bytes == 0 {
+            // procfs, sysfs...
+            continue;
+        }
         fs_info.push(new_fs_info);
     }
 
@@ -94,19 +100,56 @@ fn fill_fs_info(fs_info: FsInfo) -> Result<FsInfo, io::Error> {
 }
 
 
-/// Output filesystem information
-pub fn output_fs_info(fs_info: FsInfoVec) {
-    for cur_fs_info in fs_info {
-        if cur_fs_info.total_bytes == 0 {
-            // procfs, sysfs...
-            continue;
-        }
+pub fn output_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
+    let bar_text = format!("{} / {} ({:.1}%)",
+                           ByteSize(fs_info.used_bytes),
+                           ByteSize(fs_info.total_bytes),
+                           100.0 * fs_info.used_bytes as f32 / fs_info.total_bytes as f32);
 
-        println!("{} [{}] {} / {} ({:.1}%)",
+    // Center bar text inside fill chars
+    let bar_text_len = bar_text.len();
+    let fill_count_before = (length - 2 - bar_text_len) / 2;
+    let mut fill_count_after = fill_count_before;
+    if (length - 2 - bar_text_len) % 2 == 1 {
+        fill_count_after += 1;
+    }
+    let chars_used = ((length - 2) as u64 * fs_info.used_bytes / fs_info.total_bytes) as usize;
+
+    let bar_char = '█';
+
+    // TODO refractor this ugly crap
+    let mut bar: String = style.paint(bar_char.to_string().repeat(cmp::min(chars_used, fill_count_before))).to_string();
+    if chars_used <= fill_count_before {
+        bar += &format!("{}{}{}",
+                        &style.paint(' '.to_string().repeat(fill_count_before - chars_used)),
+                        &style.paint(&bar_text),
+                        &style.paint(' '.to_string().repeat(fill_count_after)));
+    }
+    else if chars_used <= fill_count_before + bar_text_len {
+        bar += &format!("{}{}{}",
+                        &style.reverse().paint(&bar_text[0..chars_used - fill_count_before]),
+                        &style.paint(&bar_text[chars_used - fill_count_before..]),
+                        &style.paint(' '.to_string().repeat(fill_count_after)));
+    }
+    else {
+        bar += &format!("{}{}{}",
+                        &style.reverse().paint(&bar_text),
+                        &style.paint(bar_char.to_string().repeat(chars_used - fill_count_before - bar_text_len)),
+                        &style.paint(' '.to_string().repeat(length - 2 - chars_used)));
+    }
+
+    format!("[{}]", bar)
+}
+
+
+/// Output filesystem information
+pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) {
+    let max_path_len = fs_info.iter().max_by_key(|x| x.mount_path.len()).unwrap().mount_path.len();
+
+    for cur_fs_info in fs_info {
+        println!("{}{} {}",
                  cur_fs_info.mount_path,
-                 cur_fs_info.fs_type,
-                 ByteSize(cur_fs_info.used_bytes),
-                 ByteSize(cur_fs_info.total_bytes),
-                 100.0 * cur_fs_info.used_bytes as f32 / cur_fs_info.total_bytes as f32);
+                 " ".repeat(max_path_len - cur_fs_info.mount_path.len()),
+                 output_fs_bar(&cur_fs_info, cmp::max(term_width - max_path_len - 1, 30), Style::new()));
     }
 }
