@@ -48,7 +48,7 @@ struct BarPart {
 fn output_bar(parts: VecDeque<BarPart>, length: usize) -> String {
     let mut full_bar = "[".to_string();
     for part in parts {
-        let part_len = ((length - 2) as f32 * part.prct / 100.0) as usize;
+        let part_len = ((length - 2) as f32 * part.prct / 100.0).round() as usize;
         // Build longest label that fits
         let mut label = String::new();
         for label_part in part.label {
