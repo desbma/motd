@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::cmp;
 use std::ffi::{CStr,CString};
 use std::io;
@@ -99,7 +100,7 @@ fn fill_fs_info(fs_info: FsInfo) -> Result<FsInfo, io::Error> {
 }
 
 
-pub fn output_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
+pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
     let bar_text = format!("{} / {} ({:.1}%)",
                            ByteSize(fs_info.used_bytes),
                            ByteSize(fs_info.total_bytes),
@@ -129,7 +130,9 @@ pub fn output_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
 
 
 /// Output filesystem information
-pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) {
+pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) -> VecDeque<String> {
+    let mut lines: VecDeque<String> = VecDeque::new();
+
     let max_path_len = fs_info.iter().max_by_key(|x| x.mount_path.len()).unwrap().mount_path.len();
 
     for cur_fs_info in fs_info {
@@ -145,9 +148,11 @@ pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) {
             text_style = Style::new();
         }
 
-        println!("{}{} {}",
-                 text_style.paint(&cur_fs_info.mount_path),
-                 text_style.paint(" ".repeat(max_path_len - cur_fs_info.mount_path.len())),
-                 output_fs_bar(&cur_fs_info, cmp::max(term_width - max_path_len - 1, 30), text_style));
+        lines.push_back(format!("{}{} {}",
+                                text_style.paint(&cur_fs_info.mount_path),
+                                text_style.paint(" ".repeat(max_path_len - cur_fs_info.mount_path.len())),
+                                get_fs_bar(&cur_fs_info, cmp::max(term_width - max_path_len - 1, 30), text_style)));
     }
+
+    lines
 }

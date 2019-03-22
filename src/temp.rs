@@ -164,11 +164,15 @@ fn colorize_from_temp(string: String, temp: u32, sensor_type: SensorType) -> Str
 
 
 /// Output all temperatures
-pub fn output_temps(temps: TempDeque) {
+pub fn output_temps(temps: TempDeque) -> VecDeque<String> {
+    let mut lines: VecDeque<String> = VecDeque::new();
+
     let max_name_len = temps.iter().max_by_key(|x| x.name.len()).unwrap().name.len();
     for sensor_temp in temps {
         let pad = " ".repeat(max_name_len - sensor_temp.name.len());
         let line = format!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
-        println!("{}", colorize_from_temp(line, sensor_temp.temp, sensor_temp.sensor_type));
+        lines.push_back(colorize_from_temp(line, sensor_temp.temp, sensor_temp.sensor_type));
     }
+
+    lines
 }

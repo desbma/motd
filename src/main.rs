@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::sync::mpsc;
 use std::thread;
 
@@ -16,6 +17,13 @@ fn output_title(title: &str) {
     println!("\n{:─^width$}",
              format!(" {} ", title),
              width=TERM_COLUMNS);
+}
+
+
+fn output_lines(lines: VecDeque<String>) {
+    for line in lines {
+        println!("{}", line);
+    }
 }
 
 
@@ -47,7 +55,8 @@ fn main() {
         let load_info = load::get_load_info();
 
         // Output load info
-        load::output_load_info(load_info);
+        let lines = load::output_load_info(load_info);
+        output_lines(lines);
 
 
         output_title("Memory usage");
@@ -58,7 +67,8 @@ fn main() {
         mem::get_mem_info(&mut mem_info);
 
         // Output memory usage
-        mem::output_mem(mem_info, TERM_COLUMNS);
+        let lines = mem::output_mem(mem_info, TERM_COLUMNS);
+        output_lines(lines);
 
 
         output_title("Filesystem usage");
@@ -67,14 +77,16 @@ fn main() {
         let fs_info = fs::get_fs_info();
 
         // Output filesystem info
-        fs::output_fs_info(fs_info, TERM_COLUMNS);
+        let lines = fs::output_fs_info(fs_info, TERM_COLUMNS);
+        output_lines(lines);
 
 
         output_title("Hardware temperatures");
 
         // Output temps
         temps = temps_rx.recv().unwrap();
-        temp::output_temps(temps);
+        let lines = temp::output_temps(temps);
+        output_lines(lines);
 
         // Get failed units
         failed_units = units_rx.recv().unwrap();
@@ -82,7 +94,8 @@ fn main() {
             output_title("Systemd failed units");
 
             // Output them
-            systemd::output_failed_units(failed_units);
+            let lines = systemd::output_failed_units(failed_units);
+            output_lines(lines);
         }
     }
     else {
@@ -92,7 +105,8 @@ fn main() {
         let load_info = load::get_load_info();
 
         // Output load info
-        load::output_load_info(load_info);
+        let lines = load::output_load_info(load_info);
+        output_lines(lines);
 
 
         output_title("Memory usage");
@@ -103,7 +117,8 @@ fn main() {
         mem::get_mem_info(&mut mem_info);
 
         // Output memory usage
-        mem::output_mem(mem_info, TERM_COLUMNS);
+        let lines = mem::output_mem(mem_info, TERM_COLUMNS);
+        output_lines(lines);
 
 
         output_title("Hardware temperatures");
@@ -114,7 +129,8 @@ fn main() {
         temp::get_drive_temps(&mut temps);
 
         // Output temps
-        temp::output_temps(temps);
+        let lines = temp::output_temps(temps);
+        output_lines(lines);
 
 
         output_title("Filesystem usage");
@@ -123,7 +139,8 @@ fn main() {
         let fs_info = fs::get_fs_info();
 
         // Output filesystem info
-        fs::output_fs_info(fs_info, TERM_COLUMNS);
+        let lines = fs::output_fs_info(fs_info, TERM_COLUMNS);
+        output_lines(lines);
 
 
         // Get systemd failed units
@@ -134,7 +151,8 @@ fn main() {
             output_title("Systemd failed units");
 
             // Output them
-            systemd::output_failed_units(failed_units);
+            let lines = systemd::output_failed_units(failed_units);
+            output_lines(lines);
         }
     }
 }

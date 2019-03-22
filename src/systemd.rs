@@ -29,8 +29,12 @@ pub fn get_failed_units(units: &mut FailedUnits) {
 
 
 /// Output names of Systemd units in failed state
-pub fn output_failed_units(units: FailedUnits) {
+pub fn output_failed_units(units: FailedUnits) -> VecDeque<String> {
+    let mut lines: VecDeque<String> = VecDeque::new();
+
     for unit in units {
-        println!("{}", Red.paint(unit));
+        lines.push_back(Red.paint(unit).to_string());
     }
+
+    lines
 }

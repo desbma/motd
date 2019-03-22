@@ -45,8 +45,8 @@ struct BarPart {
 
 
 /// Print memory bar
-fn output_bar(parts: VecDeque<BarPart>, length: usize) {
-    let mut full_bar: String = "[".to_string();
+fn output_bar(parts: VecDeque<BarPart>, length: usize) -> String {
+    let mut full_bar = "[".to_string();
     for part in parts {
         let part_len = ((length - 2) as f32 * part.prct / 100.0) as usize;
         // Build longest label that fits
@@ -72,35 +72,39 @@ fn output_bar(parts: VecDeque<BarPart>, length: usize) {
         full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_after)).to_string();
     }
 
-    println!("{}]", full_bar);
+    format!("{}]", full_bar)
 }
 
 
 /// Print memory stat numbers
-fn output_mem_stats(mem_info: &MemInfo, keys: Vec<&str>, total_key: &str) {
+fn output_mem_stats(mem_info: &MemInfo, keys: Vec<&str>, total_key: &str) -> VecDeque<String> {
+    let mut lines: VecDeque<String> = VecDeque::new();
+
     let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
     for &key in keys.iter() {
-        print!("{}: {}{: >5} MB",
-               key,
-               " ".repeat(max_key_len - key.len()),
-               mem_info[key] / 1024);
+        let mut line: String = format!("{}: {}{: >5} MB",
+                                       key,
+                                       " ".repeat(max_key_len - key.len()),
+                                       mem_info[key] / 1024);
         if key != total_key {
-            println!(" ({: >4.1}%)", 100.0 * mem_info[key] as f32 / mem_info[total_key] as f32);
+            line += &format!(" ({: >4.1}%)", 100.0 * mem_info[key] as f32 / mem_info[total_key] as f32);
         }
-        else {
-            println!("");
-        }
+        lines.push_back(line);
     }
+
+    lines
 }
 
 
 /// Output all memory info
-pub fn output_mem(mem_info: MemInfo, term_width: usize) {
+pub fn output_mem(mem_info: MemInfo, term_width: usize) -> VecDeque<String> {
+    let mut lines: VecDeque<String> = VecDeque::new();
+
     //
     // Memory
     //
 
-    output_mem_stats(&mem_info, vec!["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"], "MemTotal");
+    lines.extend(output_mem_stats(&mem_info, vec!["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"], "MemTotal"));
 
     let total_mem_mb = mem_info["MemTotal"] / 1024;
     let cache_mem_mb = mem_info["Cached"] / 1024;
@@ -140,14 +144,14 @@ pub fn output_mem(mem_info: MemInfo, term_width: usize) {
                                     fill_style: Style::new(),
                                     bar_char: ' '});
 
-    output_bar(mem_bar_parts, term_width);
+    lines.push_back(output_bar(mem_bar_parts, term_width));
 
     //
     // Swap
     //
 
     if mem_info["SwapTotal"] > 0 {
-        output_mem_stats(&mem_info, vec!["SwapTotal", "SwapFree"], "SwapTotal");
+        lines.extend(output_mem_stats(&mem_info, vec!["SwapTotal", "SwapFree"], "SwapTotal"));
 
         let total_swap_mb = mem_info["SwapTotal"] / 1024;
         let free_swap_mb = mem_info["SwapFree"] / 1024;
@@ -175,6 +179,8 @@ pub fn output_mem(mem_info: MemInfo, term_width: usize) {
                                          fill_style: Style::new(),
                                          bar_char: ' '});
 
-        output_bar(swap_bar_parts, term_width);
+        lines.push_back(output_bar(swap_bar_parts, term_width));
     }
+
+    lines
 }
