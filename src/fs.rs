@@ -11,7 +11,6 @@ use libc::{endmntent,getmntent,setmntent,statvfs};
 /// Information on a filesystem
 pub struct FsInfo {
     mount_path: String,
-    fs_type: String,
     used_bytes: u64,
     total_bytes: u64,
 }
@@ -59,7 +58,6 @@ pub fn get_fs_info() -> FsInfoVec {
 
         // Get filesystem info
         let mut new_fs_info = FsInfo{mount_path: mount_path,
-                                     fs_type: fs_type,
                                      used_bytes: 0,
                                      total_bytes: 0};
         new_fs_info = match fill_fs_info(new_fs_info) {
@@ -109,10 +107,6 @@ pub fn output_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
     // Center bar text inside fill chars
     let bar_text_len = bar_text.len();
     let fill_count_before = (length - 2 - bar_text_len) / 2;
-    let mut fill_count_after = fill_count_before;
-    if (length - 2 - bar_text_len) % 2 == 1 {
-        fill_count_after += 1;
-    }
     let chars_used = ((length - 2) as u64 * fs_info.used_bytes / fs_info.total_bytes) as usize;
 
     let bar_char = '█';
@@ -127,7 +121,7 @@ pub fn output_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
             style.paint(bar_char.to_string().repeat(pos1)),
             style.paint(' '.to_string().repeat(pos2 - pos1)),
             style.reverse().paint(&bar_text[0..(pos3 - pos2)]),
-            style.paint(&bar_text[cmp::max(0, pos3 - pos2)..]),
+            style.paint(&bar_text[(pos3 - pos2)..]),
             style.paint(bar_char.to_string().repeat(pos5 - pos4)),
             style.paint(' '.to_string().repeat(length - 2 - pos5)))
 }
