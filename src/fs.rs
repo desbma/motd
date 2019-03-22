@@ -3,6 +3,7 @@ use std::ffi::{CStr,CString};
 use std::io;
 use std::mem;
 
+use ansi_term::Colour::*;
 use ansi_term::Style;
 use bytesize::ByteSize;
 use libc::{endmntent,getmntent,setmntent,statvfs};
@@ -132,9 +133,21 @@ pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) {
     let max_path_len = fs_info.iter().max_by_key(|x| x.mount_path.len()).unwrap().mount_path.len();
 
     for cur_fs_info in fs_info {
+        let text_style;
+        let fs_usage = cur_fs_info.used_bytes as f32 / cur_fs_info.total_bytes as f32;
+        if fs_usage >= 0.95 {
+            text_style = Red.normal();
+        }
+        else if fs_usage >= 0.85 {
+            text_style = Yellow.normal();
+        }
+        else {
+            text_style = Style::new();
+        }
+
         println!("{}{} {}",
-                 cur_fs_info.mount_path,
-                 " ".repeat(max_path_len - cur_fs_info.mount_path.len()),
-                 output_fs_bar(&cur_fs_info, cmp::max(term_width - max_path_len - 1, 30), Style::new()));
+                 text_style.paint(&cur_fs_info.mount_path),
+                 text_style.paint(" ".repeat(max_path_len - cur_fs_info.mount_path.len())),
+                 output_fs_bar(&cur_fs_info, cmp::max(term_width - max_path_len - 1, 30), text_style));
     }
 }
