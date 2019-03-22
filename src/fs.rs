@@ -117,28 +117,19 @@ pub fn output_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
 
     let bar_char = '█';
 
-    // TODO refractor this ugly crap
-    let mut bar: String = style.paint(bar_char.to_string().repeat(cmp::min(chars_used, fill_count_before))).to_string();
-    if chars_used <= fill_count_before {
-        bar += &format!("{}{}{}",
-                        &style.paint(' '.to_string().repeat(fill_count_before - chars_used)),
-                        &style.paint(&bar_text),
-                        &style.paint(' '.to_string().repeat(fill_count_after)));
-    }
-    else if chars_used <= fill_count_before + bar_text_len {
-        bar += &format!("{}{}{}",
-                        &style.reverse().paint(&bar_text[0..chars_used - fill_count_before]),
-                        &style.paint(&bar_text[chars_used - fill_count_before..]),
-                        &style.paint(' '.to_string().repeat(fill_count_after)));
-    }
-    else {
-        bar += &format!("{}{}{}",
-                        &style.reverse().paint(&bar_text),
-                        &style.paint(bar_char.to_string().repeat(chars_used - fill_count_before - bar_text_len)),
-                        &style.paint(' '.to_string().repeat(length - 2 - chars_used)));
-    }
+    let pos1 = cmp::min(chars_used, fill_count_before);
+    let pos2 = fill_count_before;
+    let pos3 = cmp::max(fill_count_before, cmp::min(chars_used, fill_count_before + bar_text_len));
+    let pos4 = fill_count_before + bar_text_len;
+    let pos5 = cmp::max(chars_used, fill_count_before + bar_text_len);
 
-    format!("[{}]", bar)
+    format!("[{}{}{}{}{}{}]",
+            style.paint(bar_char.to_string().repeat(pos1)),
+            style.paint(' '.to_string().repeat(pos2 - pos1)),
+            style.reverse().paint(&bar_text[0..(pos3 - pos2)]),
+            style.paint(&bar_text[cmp::max(0, pos3 - pos2)..]),
+            style.paint(bar_char.to_string().repeat(pos5 - pos4)),
+            style.paint(' '.to_string().repeat(length - 2 - pos5)))
 }
 
 
