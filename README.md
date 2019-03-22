@@ -7,15 +7,22 @@ Dynamically generate Linux MOTD SSH banner
 ## Goals
 
 * Should be very fast (no perceived visual latency, even under high load)
-* Display relevant system information, and colorize anormal measures
-* Be reasonably portable across Linux boxes
+* Display relevant system information, and colorize anormal measures in orange if something is suspicious, red if it requires immediate action
+* Be reasonably portable across Linux boxes (rsync'ing the binary should work)
 * Learn Rust :)
 
-## Screenshots
+## Information displayed
 
-**Work in progress**
+* system load (orange/red if close/above CPU count)
+* memory/swap usage
+* filesystem usage (orange/red if almost full)
+* hardware temperatures (CPU, HDD...) (orange/red if too hot)
+* Systemd units in failed state (red)
 
-[![Imgur](https://i.imgur.com/WQfwVJPl.png)](https://i.imgur.com/WQfwVJP.png)
+
+## Screenshot
+
+[![Imgur](https://i.imgur.com/OPrRqKzl.png)](https://i.imgur.com/OPrRqKz.png)
 
 
 ## License
