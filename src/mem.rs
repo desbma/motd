@@ -5,6 +5,7 @@ use std::fs::File;
 use std::str::FromStr;
 
 use ansi_term::Style;
+use bytesize::ByteSize;
 
 
 /// Map of memory usage info, unit is kB of page count
@@ -82,10 +83,11 @@ fn output_mem_stats(mem_info: &MemInfo, keys: Vec<&str>, total_key: &str) -> Vec
 
     let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
     for &key in keys.iter() {
-        let mut line: String = format!("{}: {}{: >5} MB",
+        let size_str = ByteSize::kb(mem_info[key]).to_string();
+        let mut line: String = format!("{}: {}{}",
                                        key,
-                                       " ".repeat(max_key_len - key.len()),
-                                       mem_info[key] / 1024);
+                                       " ".repeat(max_key_len - key.len() + 8 - size_str.len()),
+                                       size_str);
         if key != total_key {
             line += &format!(" ({: >4.1}%)", 100.0 * mem_info[key] as f32 / mem_info[total_key] as f32);
         }
