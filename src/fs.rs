@@ -50,6 +50,7 @@ pub fn get_fs_info() -> FsInfoVec {
 
         // Exclude some cases
         if (fs_type == "devtmpfs") ||
+           (fs_type == "autofs") ||
            fs_type.starts_with("fuse.") ||
            mount_path.starts_with("/dev/") ||
            (mount_path == "/run") ||
