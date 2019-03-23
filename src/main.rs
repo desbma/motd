@@ -55,7 +55,7 @@ fn main() {
         let load_info = load::get_load_info();
 
         // Output load info
-        let lines = load::output_load_info(load_info);
+        let lines = load::output_load_info(load_info, 0);
         output_lines(lines);
 
 
@@ -105,7 +105,7 @@ fn main() {
         let load_info = load::get_load_info();
 
         // Output load info
-        let lines = load::output_load_info(load_info);
+        let lines = load::output_load_info(load_info, 0);
         output_lines(lines);
 
 

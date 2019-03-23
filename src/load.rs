@@ -52,10 +52,16 @@ fn colorize_load(load: f32, cpu_count: usize) -> String  {
 
 
 /// Output load information
-pub fn output_load_info(load_info: LoadInfo) -> VecDeque<String> {
+pub fn output_load_info(load_info: LoadInfo, default_cpu_count: usize) -> VecDeque<String> {
     let mut lines: VecDeque<String> = VecDeque::new();
 
-    let cpu_count = num_cpus::get();
+    let cpu_count;
+    if default_cpu_count == 0 {
+        cpu_count = num_cpus::get();
+    }
+    else {
+        cpu_count = default_cpu_count;
+    }
     lines.push_back(format!("Load avg 1min: {}, 5 min: {}, 15 min: {}",
                             colorize_load(load_info.load_avg_1m, cpu_count),
                             colorize_load(load_info.load_avg_5m, cpu_count),
@@ -63,4 +69,32 @@ pub fn output_load_info(load_info: LoadInfo) -> VecDeque<String> {
     lines.push_back(format!("Tasks: {}", load_info.task_count));
 
     lines
+}
+
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+
+    #[test]
+    fn test_output_load_info() {
+        assert_eq!(output_load_info(LoadInfo{load_avg_1m: 1.1,
+                                             load_avg_5m: 2.9,
+                                             load_avg_15m: 3.1,
+                                             task_count: 12345},
+                                    3),
+                   ["Load avg 1min: 1.1, 5 min: \u{1b}[33m2.9\u{1b}[0m, 15 min: \u{1b}[31m3.1\u{1b}[0m",
+                    "Tasks: 12345"]);
+    }
+
+    #[test]
+    fn test_colorize_load() {
+        assert_eq!(colorize_load(7.9, 10), "7.9");
+        assert_eq!(colorize_load(8.0, 10), "\u{1b}[33m8\u{1b}[0m");
+        assert_eq!(colorize_load(8.1, 10), "\u{1b}[33m8.1\u{1b}[0m");
+        assert_eq!(colorize_load(9.9, 10), "\u{1b}[33m9.9\u{1b}[0m");
+        assert_eq!(colorize_load(10.0, 10), "\u{1b}[31m10\u{1b}[0m");
+        assert_eq!(colorize_load(10.1, 10), "\u{1b}[31m10.1\u{1b}[0m");
+    }
 }
