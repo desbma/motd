@@ -67,7 +67,7 @@ fn main() {
         mem::get_mem_info(&mut mem_info);
 
         // Output memory usage
-        let lines = mem::output_mem(mem_info, TERM_COLUMNS);
+        let lines = mem::output_mem(&mem_info, TERM_COLUMNS);
         output_lines(lines);
 
 
@@ -117,7 +117,7 @@ fn main() {
         mem::get_mem_info(&mut mem_info);
 
         // Output memory usage
-        let lines = mem::output_mem(mem_info, TERM_COLUMNS);
+        let lines = mem::output_mem(&mem_info, TERM_COLUMNS);
         output_lines(lines);
 
 
