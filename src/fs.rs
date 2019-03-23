@@ -101,6 +101,7 @@ fn fill_fs_info(fs_info: FsInfo) -> Result<FsInfo, io::Error> {
 }
 
 
+/// Generate a bar to represent filesystem usage
 pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
     let bar_text = format!("{} / {} ({:.1}%)",
                            ByteSize(fs_info.used_bytes),

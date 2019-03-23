@@ -24,11 +24,11 @@ enum SensorType {
 
 /// Temperature data
 pub struct SensorTemp {
-    // Name of sensor
+    /// Name of sensor
     name: String,
-    // Type of sensor
+    /// Type of sensor
     sensor_type: SensorType,
-    // Temperature value in Celcius
+    /// Temperature value in Celcius
     temp: u32,
 }
 

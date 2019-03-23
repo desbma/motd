@@ -8,9 +8,13 @@ use ansi_term::Colour::*;
 
 /// Names of failed Systemd units
 pub struct LoadInfo {
+    /// Load average 1 minute
     load_avg_1m: f32,
+    /// Load average 5 minutes
     load_avg_5m: f32,
+    /// Load average 15 minutes
     load_avg_15m: f32,
+    /// Total task count
     task_count: u32,
 }
 

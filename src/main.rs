@@ -13,6 +13,7 @@ mod temp;
 const TERM_COLUMNS : usize = 80;  // TODO Get this dynamically?
 
 
+/// Output section header to stdout
 fn output_title(title: &str) {
     println!("\n{:─^width$}",
              format!(" {} ", title),
@@ -20,6 +21,7 @@ fn output_title(title: &str) {
 }
 
 
+/// Output lines to stdout
 fn output_lines(lines: VecDeque<String>) {
     for line in lines {
         println!("{}", line);
