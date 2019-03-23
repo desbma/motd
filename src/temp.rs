@@ -176,3 +176,53 @@ pub fn output_temps(temps: TempDeque) -> VecDeque<String> {
 
     lines
 }
+
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+
+    #[test]
+    fn test_output_temps() {
+        assert_eq!(output_temps(TempDeque::from(vec![SensorTemp{name: "sensor1".to_string(),
+                                                                sensor_type: SensorType::CPU,
+                                                                temp: 95},
+                                                     SensorTemp{name: "sensor222222222".to_string(),
+                                                                sensor_type: SensorType::DRIVE,
+                                                                temp: 40},
+                                                     SensorTemp{name: "sensor333".to_string(),
+                                                                sensor_type: SensorType::OTHER,
+                                                                temp: 50}])),
+                   ["\u{1b}[31msensor1:         95 °C\u{1b}[0m",
+                    "sensor222222222: 40 °C",
+                    "\u{1b}[33msensor333:       50 °C\u{1b}[0m"]);
+    }
+
+    #[test]
+    fn test_colorize_from_temp() {
+        assert_eq!(colorize_from_temp("hey".to_string(), 59, SensorType::CPU), "hey");
+        assert_eq!(colorize_from_temp("hey".to_string(), 60, SensorType::CPU), "\u{1b}[33mhey\u{1b}[0m");
+        assert_eq!(colorize_from_temp("hey".to_string(), 61, SensorType::CPU), "\u{1b}[33mhey\u{1b}[0m");
+
+        assert_eq!(colorize_from_temp("hey".to_string(), 74, SensorType::CPU), "\u{1b}[33mhey\u{1b}[0m");
+        assert_eq!(colorize_from_temp("hey".to_string(), 75, SensorType::CPU), "\u{1b}[31mhey\u{1b}[0m");
+        assert_eq!(colorize_from_temp("hey".to_string(), 76, SensorType::CPU), "\u{1b}[31mhey\u{1b}[0m");
+
+        assert_eq!(colorize_from_temp("hey".to_string(), 44, SensorType::DRIVE), "hey");
+        assert_eq!(colorize_from_temp("hey".to_string(), 45, SensorType::DRIVE), "\u{1b}[33mhey\u{1b}[0m");
+        assert_eq!(colorize_from_temp("hey".to_string(), 46, SensorType::DRIVE), "\u{1b}[33mhey\u{1b}[0m");
+
+        assert_eq!(colorize_from_temp("hey".to_string(), 54, SensorType::DRIVE), "\u{1b}[33mhey\u{1b}[0m");
+        assert_eq!(colorize_from_temp("hey".to_string(), 55, SensorType::DRIVE), "\u{1b}[31mhey\u{1b}[0m");
+        assert_eq!(colorize_from_temp("hey".to_string(), 56, SensorType::DRIVE), "\u{1b}[31mhey\u{1b}[0m");
+
+        assert_eq!(colorize_from_temp("hey".to_string(), 49, SensorType::OTHER), "hey");
+        assert_eq!(colorize_from_temp("hey".to_string(), 50, SensorType::OTHER), "\u{1b}[33mhey\u{1b}[0m");
+        assert_eq!(colorize_from_temp("hey".to_string(), 51, SensorType::OTHER), "\u{1b}[33mhey\u{1b}[0m");
+
+        assert_eq!(colorize_from_temp("hey".to_string(), 59, SensorType::OTHER), "\u{1b}[33mhey\u{1b}[0m");
+        assert_eq!(colorize_from_temp("hey".to_string(), 60, SensorType::OTHER), "\u{1b}[31mhey\u{1b}[0m");
+        assert_eq!(colorize_from_temp("hey".to_string(), 61, SensorType::OTHER), "\u{1b}[31mhey\u{1b}[0m");
+    }
+}
