@@ -45,7 +45,10 @@ pub type TempDeque = VecDeque<SensorTemp>;
 
 /// Read temperature from a given hwmon sysfs file
 fn read_sysfs_temp_value(filepath: String) -> Option<u32> {
-    let mut input_file = File::open(filepath).unwrap();
+    let mut input_file = match File::open(filepath) {
+        Ok(f) => f,
+        Err(_e) => return None,
+    };
     let mut temp_str = String::new();
     input_file.read_to_string(&mut temp_str).unwrap();
     let temp_val = match temp_str.trim_end().parse::<u32>() {
