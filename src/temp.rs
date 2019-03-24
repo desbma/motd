@@ -117,12 +117,22 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
             if max_temp_val.is_some() && crit_temp_val.is_some() {
                 let max_temp_val = max_temp_val.unwrap();
                 let crit_temp_val = crit_temp_val.unwrap();
-                warning_temp = cmp::min(max_temp_val, crit_temp_val) - (cmp::max(max_temp_val, crit_temp_val) - cmp::min(max_temp_val, crit_temp_val));
+                let delta = match sensor_type {
+                    SensorType::CPU => (cmp::max(max_temp_val, crit_temp_val) - cmp::min(max_temp_val, crit_temp_val)) / 2,
+                    SensorType::OTHER => 5,
+                    _ => panic!(),
+                };
+                warning_temp = max_temp_val - delta;
                 crit_temp = max_temp_val;
             }
             else if max_temp_val.is_some() {
                 let max_temp_val = max_temp_val.unwrap();
-                warning_temp = max_temp_val - 10;
+                let delta = match sensor_type {
+                    SensorType::CPU => 10,
+                    SensorType::OTHER => 5,
+                    _ => panic!(),
+                };
+                warning_temp = max_temp_val - delta;
                 crit_temp = max_temp_val;
             }
             else {
