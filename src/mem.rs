@@ -47,7 +47,7 @@ struct BarPart {
 
 /// Print memory bar
 fn output_bar(parts: VecDeque<BarPart>, length: usize) -> String {
-    let mut full_bar = "[".to_string();
+    let mut full_bar = "▕".to_string();
     for part in parts {
         let part_len = ((length - 2) as f32 * part.prct / 100.0).round() as usize;
         // Build longest label that fits
@@ -73,7 +73,9 @@ fn output_bar(parts: VecDeque<BarPart>, length: usize) -> String {
         full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_after)).to_string();
     }
 
-    format!("{}]", full_bar)
+    full_bar.push('▏');
+
+    full_bar
 }
 
 
@@ -219,7 +221,7 @@ mod tests
                                                           fill_style: Style::new(),
                                                           bar_char: '%'}]),
                               80),
-                   "[###part1PART1P_A_R_T_1####XXXpart2PART2P_A_R_T_2XXXX%%%part3PART3P_A_R_T_3%%%%]");
+                   "▕###part1PART1P_A_R_T_1####XXXpart2PART2P_A_R_T_2XXXX%%%part3PART3P_A_R_T_3%%%%▏");
         assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
                                                                       "PART1".to_string(),
                                                                       "P_A_R_T_1".to_string()],
@@ -242,7 +244,7 @@ mod tests
                                                           fill_style: Style::new(),
                                                           bar_char: '%'}]),
                               50),
-                   "[###part1PART1###XXXpart2PART2XXX%%%part3PART3%%%]");
+                   "▕###part1PART1###XXXpart2PART2XXX%%%part3PART3%%%▏");
         assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
                                                                       "PART1".to_string(),
                                                                       "P_A_R_T_1".to_string()],
@@ -265,7 +267,7 @@ mod tests
                                                           fill_style: Style::new(),
                                                           bar_char: '%'}]),
                               30),
-                   "[##part1##XXpart2XX%%part3%%]");
+                   "▕##part1##XXpart2XX%%part3%%▏");
         assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
                                                                       "PART1".to_string(),
                                                                       "P_A_R_T_1".to_string()],
@@ -288,7 +290,7 @@ mod tests
                                                           fill_style: Style::new(),
                                                           bar_char: '%'}]),
                               15),
-                   "[####XXXX%%%%]");
+                   "▕####XXXX%%%%▏");
         assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
                                                                       "PART1".to_string(),
                                                                       "P_A_R_T_1".to_string()],
@@ -311,7 +313,7 @@ mod tests
                                                           fill_style: Style::new(),
                                                           bar_char: '%'}]),
                               50),
-                   "[#part1#part2PART2%%%%%%part3PART3P_A_R_T_3%%%%%%]");
+                   "▕#part1#part2PART2%%%%%%part3PART3P_A_R_T_3%%%%%%▏");
         assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
                                                                       "PART1".to_string(),
                                                                       "P_A_R_T_1".to_string()],
@@ -334,7 +336,7 @@ mod tests
                                                           fill_style: Blue.blink(),
                                                           bar_char: '%'}]),
                               50),
-                   "[\u{1b}[4;31m#\u{1b}[0m\u{1b}[1;31mpart1\u{1b}[0m\u{1b}[4;31m#\u{1b}[0m\u{1b}[3;33m\u{1b}[0m\u{1b}[2;33mpart2PART2\u{1b}[0m\u{1b}[3;33m\u{1b}[0m\u{1b}[5;34m%%%%%%\u{1b}[0m\u{1b}[7;34mpart3PART3P_A_R_T_3\u{1b}[0m\u{1b}[5;34m%%%%%%\u{1b}[0m]");
+                   "▕\u{1b}[4;31m#\u{1b}[0m\u{1b}[1;31mpart1\u{1b}[0m\u{1b}[4;31m#\u{1b}[0m\u{1b}[3;33m\u{1b}[0m\u{1b}[2;33mpart2PART2\u{1b}[0m\u{1b}[3;33m\u{1b}[0m\u{1b}[5;34m%%%%%%\u{1b}[0m\u{1b}[7;34mpart3PART3P_A_R_T_3\u{1b}[0m\u{1b}[5;34m%%%%%%\u{1b}[0m▏");
     }
 
     #[test]
@@ -371,19 +373,19 @@ mod tests
                     "Dirty:      2.1 MB (17.3%)",
                     "Cached:     3.1 MB (25.3%)",
                     "Buffers:    4.3 MB (35.0%)",
-                    "[████\u{1b}[7mUsed 0.0GB (33.3%)\u{1b}[0m████\u{1b}[2m█████████████\u{1b}[0m\u{1b}[2;7mCached 0.0GB (58.3%)\u{1b}[0m\u{1b}[2m█████████████\u{1b}[0m Free  ]",
+                    "▕████\u{1b}[7mUsed 0.0GB (33.3%)\u{1b}[0m████\u{1b}[2m█████████████\u{1b}[0m\u{1b}[2;7mCached 0.0GB (58.3%)\u{1b}[0m\u{1b}[2m█████████████\u{1b}[0m Free  ▏",
                     "SwapTotal:  12.3 GB",
                     "SwapFree:    2.3 GB (19.0%)",
-                    "[██████████████████████\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███████████████████████Swap free 2.2GB]"]);
+                    "▕██████████████████████\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███████████████████████Swap free 2.2GB▏"]);
         assert_eq!(output_mem(&mem_stats, 30),
                    ["MemTotal:  12.3 MB",
                     "MemFree:    1.2 MB (10.0%)",
                     "Dirty:      2.1 MB (17.3%)",
                     "Cached:     3.1 MB (25.3%)",
                     "Buffers:    4.3 MB (35.0%)",
-                    "[██\u{1b}[7mUsed\u{1b}[0m███\u{1b}[2m██\u{1b}[0m\u{1b}[2;7mCached 0.0GB\u{1b}[0m\u{1b}[2m██\u{1b}[0m  ]",
+                    "▕██\u{1b}[7mUsed\u{1b}[0m███\u{1b}[2m██\u{1b}[0m\u{1b}[2;7mCached 0.0GB\u{1b}[0m\u{1b}[2m██\u{1b}[0m  ▏",
                     "SwapTotal:  12.3 GB",
                     "SwapFree:    2.3 GB (19.0%)",
-                    "[██\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███     ]"]);
+                    "▕██\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███     ▏"]);
     }
 }

@@ -121,7 +121,7 @@ pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
     let pos4 = fill_count_before + bar_text_len;
     let pos5 = cmp::max(chars_used, fill_count_before + bar_text_len);
 
-    format!("[{}{}{}{}{}{}]",
+    format!("▕{}{}{}{}{}{}▏",
             style.paint(bar_char.to_string().repeat(pos1)),
             style.paint(' '.to_string().repeat(pos2 - pos1)),
             style.reverse().paint(&bar_text[0..(pos3 - pos2)]),
@@ -174,8 +174,8 @@ mod tests
                                               used_bytes: 2345600000,
                                               total_bytes: 7891011000}],
                                   60),
-                   ["/foo/bar [█           \u{1b}[7m\u{1b}[0m234.6 KB / 7.9 MB (3.0%)             ]",
-                    "/foo/baz [█████████████\u{1b}[7m2\u{1b}[0m.3 GB / 7.9 GB (29.7%)             ]"]);
+                   ["/foo/bar ▕█           \u{1b}[7m\u{1b}[0m234.6 KB / 7.9 MB (3.0%)             ▏",
+                    "/foo/baz ▕█████████████\u{1b}[7m2\u{1b}[0m.3 GB / 7.9 GB (29.7%)             ▏"]);
     }
 
     #[test]
@@ -185,48 +185,48 @@ mod tests
                                       total_bytes: 7891011},
                               40,
                               Red.normal()),
-                   "[\u{1b}[31m\u{1b}[0m\u{1b}[31m       \u{1b}[0m\u{1b}[7;31m\u{1b}[0m\u{1b}[31m23.5 KB / 7.9 MB (0.3%)\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m        \u{1b}[0m]");
+                   "▕\u{1b}[31m\u{1b}[0m\u{1b}[31m       \u{1b}[0m\u{1b}[7;31m\u{1b}[0m\u{1b}[31m23.5 KB / 7.9 MB (0.3%)\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m        \u{1b}[0m▏");
         assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
                                       used_bytes: 0,
                                       total_bytes: 7891011},
                               40,
                               Style::new()),
-                   "[         \u{1b}[7m\u{1b}[0m0 B / 7.9 MB (0.0%)          ]");
+                   "▕         \u{1b}[7m\u{1b}[0m0 B / 7.9 MB (0.0%)          ▏");
         assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
                                       used_bytes: 434560,
                                       total_bytes: 7891011},
                               40,
                               Style::new()),
-                   "[██     \u{1b}[7m\u{1b}[0m434.6 KB / 7.9 MB (5.5%)       ]");
+                   "▕██     \u{1b}[7m\u{1b}[0m434.6 KB / 7.9 MB (5.5%)       ▏");
         assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
                                       used_bytes: 4891011000,
                                       total_bytes: 7891011000},
                               40,
                               Style::new()),
-                   "[███████\u{1b}[7m4.9 GB / 7.9 GB \u{1b}[0m(62.0%)        ]");
+                   "▕███████\u{1b}[7m4.9 GB / 7.9 GB \u{1b}[0m(62.0%)        ▏");
         assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
                                       used_bytes: 4891011000,
                                       total_bytes: 7891011000},
                               30,
                               Style::new()),
-                   "[██\u{1b}[7m4.9 GB / 7.9 GB\u{1b}[0m (62.0%)   ]");
+                   "▕██\u{1b}[7m4.9 GB / 7.9 GB\u{1b}[0m (62.0%)   ▏");
         assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
                                       used_bytes: 4891011000,
                                       total_bytes: 7891011000},
                               50,
                               Style::new()),
-                   "[████████████\u{1b}[7m4.9 GB / 7.9 GB (\u{1b}[0m62.0%)             ]");
+                   "▕████████████\u{1b}[7m4.9 GB / 7.9 GB (\u{1b}[0m62.0%)             ▏");
         assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
                                       used_bytes: 6891011000000,
                                       total_bytes: 7891011000000},
                               40,
                               Style::new()),
-                   "[███████\u{1b}[7m6.9 TB / 7.9 TB (87.3%)\u{1b}[0m███     ]");
+                   "▕███████\u{1b}[7m6.9 TB / 7.9 TB (87.3%)\u{1b}[0m███     ▏");
         assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
                                       used_bytes: 7891011000000,
                                       total_bytes: 7891011000000},
                               40,
                               Style::new()),
-                   "[███████\u{1b}[7m7.9 TB / 7.9 TB (100.0%)\u{1b}[0m███████]");
+                   "▕███████\u{1b}[7m7.9 TB / 7.9 TB (100.0%)\u{1b}[0m███████▏");
     }
 }
