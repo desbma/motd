@@ -131,13 +131,15 @@ pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
     let pos5 = cmp::max(chars_used, fill_count_before + bar_text_len);
 
     format!(
-        "▕{}{}{}{}{}{}▏",
+        "{}{}{}{}{}{}{}{}",
+        style.paint("▕"),
         style.paint(bar_char.to_string().repeat(pos1)),
         style.paint(' '.to_string().repeat(pos2 - pos1)),
         style.reverse().paint(&bar_text[0..(pos3 - pos2)]),
         style.paint(&bar_text[(pos3 - pos2)..]),
         style.paint(bar_char.to_string().repeat(pos5 - pos4)),
-        style.paint(' '.to_string().repeat(length - 2 - pos5))
+        style.paint(' '.to_string().repeat(length - 2 - pos5)),
+        style.paint("▏"),
     )
 }
 
@@ -202,7 +204,7 @@ mod tests {
                                       total_bytes: 7891011},
                               40,
                               Red.normal()),
-                   "▕\u{1b}[31m\u{1b}[0m\u{1b}[31m       \u{1b}[0m\u{1b}[7;31m\u{1b}[0m\u{1b}[31m23.5 KB / 7.9 MB (0.3%)\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m        \u{1b}[0m▏");
+                   "\u{1b}[31m▕\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m       \u{1b}[0m\u{1b}[7;31m\u{1b}[0m\u{1b}[31m23.5 KB / 7.9 MB (0.3%)\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m        \u{1b}[0m\u{1b}[31m▏\u{1b}[0m");
         assert_eq!(
             get_fs_bar(
                 &FsInfo {
