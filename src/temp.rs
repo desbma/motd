@@ -83,7 +83,7 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
             }
 
             // Deduce type from name
-            let sensor_type= if label.starts_with("CPU ") || label.starts_with("Core ") {
+            let sensor_type = if label.starts_with("CPU ") || label.starts_with("Core ") {
                 SensorType::CPU
             } else {
                 SensorType::OTHER
