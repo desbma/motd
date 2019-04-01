@@ -1,14 +1,13 @@
-use std::collections::VecDeque;
 use std::cmp;
-use std::ffi::{CStr,CString};
+use std::collections::VecDeque;
+use std::ffi::{CStr, CString};
 use std::io;
 use std::mem;
 
 use ansi_term::Colour::*;
 use ansi_term::Style;
 use bytesize::ByteSize;
-use libc::{endmntent,getmntent,setmntent,statvfs};
-
+use libc::{endmntent, getmntent, setmntent, statvfs};
 
 /// Information on a filesystem
 pub struct FsInfo {
@@ -19,8 +18,6 @@ pub struct FsInfo {
 
 /// Information on all filesystems
 pub type FsInfoVec = Vec<FsInfo>;
-
-
 
 /// Fetch filesystem information for all filesystems
 pub fn get_fs_info() -> FsInfoVec {
@@ -44,25 +41,34 @@ pub fn get_fs_info() -> FsInfoVec {
         let mount_path;
         let fs_type;
         unsafe {
-            mount_path = CStr::from_ptr((*mount).mnt_dir).to_str().unwrap().to_string();
-            fs_type = CStr::from_ptr((*mount).mnt_type).to_str().unwrap().to_string();
+            mount_path = CStr::from_ptr((*mount).mnt_dir)
+                .to_str()
+                .unwrap()
+                .to_string();
+            fs_type = CStr::from_ptr((*mount).mnt_type)
+                .to_str()
+                .unwrap()
+                .to_string();
         }
 
         // Exclude some cases
-        if (fs_type == "devtmpfs") ||
-           (fs_type == "autofs") ||
-           fs_type.starts_with("fuse.") ||
-           mount_path.starts_with("/dev/") ||
-           (mount_path == "/run") ||
-           mount_path.starts_with("/run/") ||
-           mount_path.starts_with("/sys/") {
+        if (fs_type == "devtmpfs")
+            || (fs_type == "autofs")
+            || fs_type.starts_with("fuse.")
+            || mount_path.starts_with("/dev/")
+            || (mount_path == "/run")
+            || mount_path.starts_with("/run/")
+            || mount_path.starts_with("/sys/")
+        {
             continue;
         }
 
         // Get filesystem info
-        let mut new_fs_info = FsInfo{mount_path: mount_path,
-                                     used_bytes: 0,
-                                     total_bytes: 0};
+        let mut new_fs_info = FsInfo {
+            mount_path: mount_path,
+            used_bytes: 0,
+            total_bytes: 0,
+        };
         new_fs_info = match fill_fs_info(new_fs_info) {
             Ok(fsi) => fsi,
             Err(_e) => continue,
@@ -75,13 +81,12 @@ pub fn get_fs_info() -> FsInfoVec {
     }
 
     // Close mount list file
-    unsafe { endmntent(mount_file) };  // endmntent always returns 1
+    unsafe { endmntent(mount_file) }; // endmntent always returns 1
 
     fs_info.sort_by(|a, b| a.mount_path.cmp(&b.mount_path));
 
     fs_info
 }
-
 
 /// Fetch detailed filesystem information
 fn fill_fs_info(fs_info: FsInfo) -> Result<FsInfo, io::Error> {
@@ -100,13 +105,14 @@ fn fill_fs_info(fs_info: FsInfo) -> Result<FsInfo, io::Error> {
     Ok(fs_info)
 }
 
-
 /// Generate a bar to represent filesystem usage
 pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
-    let bar_text = format!("{} / {} ({:.1}%)",
-                           ByteSize(fs_info.used_bytes),
-                           ByteSize(fs_info.total_bytes),
-                           100.0 * fs_info.used_bytes as f32 / fs_info.total_bytes as f32);
+    let bar_text = format!(
+        "{} / {} ({:.1}%)",
+        ByteSize(fs_info.used_bytes),
+        ByteSize(fs_info.total_bytes),
+        100.0 * fs_info.used_bytes as f32 / fs_info.total_bytes as f32
+    );
 
     // Center bar text inside fill chars
     let bar_text_len = bar_text.len();
@@ -117,52 +123,63 @@ pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
 
     let pos1 = cmp::min(chars_used, fill_count_before);
     let pos2 = fill_count_before;
-    let pos3 = cmp::max(fill_count_before, cmp::min(chars_used, fill_count_before + bar_text_len));
+    let pos3 = cmp::max(
+        fill_count_before,
+        cmp::min(chars_used, fill_count_before + bar_text_len),
+    );
     let pos4 = fill_count_before + bar_text_len;
     let pos5 = cmp::max(chars_used, fill_count_before + bar_text_len);
 
-    format!("▕{}{}{}{}{}{}▏",
-            style.paint(bar_char.to_string().repeat(pos1)),
-            style.paint(' '.to_string().repeat(pos2 - pos1)),
-            style.reverse().paint(&bar_text[0..(pos3 - pos2)]),
-            style.paint(&bar_text[(pos3 - pos2)..]),
-            style.paint(bar_char.to_string().repeat(pos5 - pos4)),
-            style.paint(' '.to_string().repeat(length - 2 - pos5)))
+    format!(
+        "▕{}{}{}{}{}{}▏",
+        style.paint(bar_char.to_string().repeat(pos1)),
+        style.paint(' '.to_string().repeat(pos2 - pos1)),
+        style.reverse().paint(&bar_text[0..(pos3 - pos2)]),
+        style.paint(&bar_text[(pos3 - pos2)..]),
+        style.paint(bar_char.to_string().repeat(pos5 - pos4)),
+        style.paint(' '.to_string().repeat(length - 2 - pos5))
+    )
 }
-
 
 /// Output filesystem information
 pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) -> VecDeque<String> {
     let mut lines: VecDeque<String> = VecDeque::new();
 
-    let max_path_len = fs_info.iter().max_by_key(|x| x.mount_path.len()).unwrap().mount_path.len();
+    let max_path_len = fs_info
+        .iter()
+        .max_by_key(|x| x.mount_path.len())
+        .unwrap()
+        .mount_path
+        .len();
 
     for cur_fs_info in fs_info {
         let text_style;
         let fs_usage = cur_fs_info.used_bytes as f32 / cur_fs_info.total_bytes as f32;
         if fs_usage >= 0.95 {
             text_style = Red.normal();
-        }
-        else if fs_usage >= 0.85 {
+        } else if fs_usage >= 0.85 {
             text_style = Yellow.normal();
-        }
-        else {
+        } else {
             text_style = Style::new();
         }
 
-        lines.push_back(format!("{}{} {}",
-                                text_style.paint(&cur_fs_info.mount_path),
-                                text_style.paint(" ".repeat(max_path_len - cur_fs_info.mount_path.len())),
-                                get_fs_bar(&cur_fs_info, cmp::max(term_width - max_path_len - 1, 30), text_style)));
+        lines.push_back(format!(
+            "{}{} {}",
+            text_style.paint(&cur_fs_info.mount_path),
+            text_style.paint(" ".repeat(max_path_len - cur_fs_info.mount_path.len())),
+            get_fs_bar(
+                &cur_fs_info,
+                cmp::max(term_width - max_path_len - 1, 30),
+                text_style
+            )
+        ));
     }
 
     lines
 }
 
-
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
 
     #[test]
@@ -186,42 +203,72 @@ mod tests
                               40,
                               Red.normal()),
                    "▕\u{1b}[31m\u{1b}[0m\u{1b}[31m       \u{1b}[0m\u{1b}[7;31m\u{1b}[0m\u{1b}[31m23.5 KB / 7.9 MB (0.3%)\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m        \u{1b}[0m▏");
-        assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
-                                      used_bytes: 0,
-                                      total_bytes: 7891011},
-                              40,
-                              Style::new()),
-                   "▕         \u{1b}[7m\u{1b}[0m0 B / 7.9 MB (0.0%)          ▏");
-        assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
-                                      used_bytes: 434560,
-                                      total_bytes: 7891011},
-                              40,
-                              Style::new()),
-                   "▕██     \u{1b}[7m\u{1b}[0m434.6 KB / 7.9 MB (5.5%)       ▏");
-        assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
-                                      used_bytes: 4891011000,
-                                      total_bytes: 7891011000},
-                              40,
-                              Style::new()),
-                   "▕███████\u{1b}[7m4.9 GB / 7.9 GB \u{1b}[0m(62.0%)        ▏");
-        assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
-                                      used_bytes: 4891011000,
-                                      total_bytes: 7891011000},
-                              30,
-                              Style::new()),
-                   "▕██\u{1b}[7m4.9 GB / 7.9 GB\u{1b}[0m (62.0%)   ▏");
+        assert_eq!(
+            get_fs_bar(
+                &FsInfo {
+                    mount_path: "/foo/bar".to_string(),
+                    used_bytes: 0,
+                    total_bytes: 7891011
+                },
+                40,
+                Style::new()
+            ),
+            "▕         \u{1b}[7m\u{1b}[0m0 B / 7.9 MB (0.0%)          ▏"
+        );
+        assert_eq!(
+            get_fs_bar(
+                &FsInfo {
+                    mount_path: "/foo/bar".to_string(),
+                    used_bytes: 434560,
+                    total_bytes: 7891011
+                },
+                40,
+                Style::new()
+            ),
+            "▕██     \u{1b}[7m\u{1b}[0m434.6 KB / 7.9 MB (5.5%)       ▏"
+        );
+        assert_eq!(
+            get_fs_bar(
+                &FsInfo {
+                    mount_path: "/foo/bar".to_string(),
+                    used_bytes: 4891011000,
+                    total_bytes: 7891011000
+                },
+                40,
+                Style::new()
+            ),
+            "▕███████\u{1b}[7m4.9 GB / 7.9 GB \u{1b}[0m(62.0%)        ▏"
+        );
+        assert_eq!(
+            get_fs_bar(
+                &FsInfo {
+                    mount_path: "/foo/bar".to_string(),
+                    used_bytes: 4891011000,
+                    total_bytes: 7891011000
+                },
+                30,
+                Style::new()
+            ),
+            "▕██\u{1b}[7m4.9 GB / 7.9 GB\u{1b}[0m (62.0%)   ▏"
+        );
         assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
                                       used_bytes: 4891011000,
                                       total_bytes: 7891011000},
                               50,
                               Style::new()),
                    "▕████████████\u{1b}[7m4.9 GB / 7.9 GB (\u{1b}[0m62.0%)             ▏");
-        assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
-                                      used_bytes: 6891011000000,
-                                      total_bytes: 7891011000000},
-                              40,
-                              Style::new()),
-                   "▕███████\u{1b}[7m6.9 TB / 7.9 TB (87.3%)\u{1b}[0m███     ▏");
+        assert_eq!(
+            get_fs_bar(
+                &FsInfo {
+                    mount_path: "/foo/bar".to_string(),
+                    used_bytes: 6891011000000,
+                    total_bytes: 7891011000000
+                },
+                40,
+                Style::new()
+            ),
+            "▕███████\u{1b}[7m6.9 TB / 7.9 TB (87.3%)\u{1b}[0m███     ▏"
+        );
         assert_eq!(get_fs_bar(&FsInfo{mount_path: "/foo/bar".to_string(),
                                       used_bytes: 7891011000000,
                                       total_bytes: 7891011000000},

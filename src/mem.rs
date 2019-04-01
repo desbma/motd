@@ -1,16 +1,14 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::io::{BufReader,BufRead};
 use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::str::FromStr;
 
 use ansi_term::Style;
 use bytesize::ByteSize;
 
-
 /// Map of memory usage info, unit is kB of page count
 pub type MemInfo = HashMap<String, u64>;
-
 
 /// Fetch memory usage info from procfs
 pub fn get_mem_info(mem_info: &mut MemInfo) {
@@ -29,7 +27,6 @@ pub fn get_mem_info(mem_info: &mut MemInfo) {
     }
 }
 
-
 /// Memory bar section
 struct BarPart {
     /// Section text
@@ -44,7 +41,6 @@ struct BarPart {
     bar_char: char,
 }
 
-
 /// Print memory bar
 fn output_bar(parts: VecDeque<BarPart>, length: usize) -> String {
     let mut full_bar = "▕".to_string();
@@ -55,8 +51,7 @@ fn output_bar(parts: VecDeque<BarPart>, length: usize) -> String {
         for label_part in part.label {
             if label.len() + label_part.len() <= part_len {
                 label += &label_part;
-            }
-            else {
+            } else {
                 break;
             }
         }
@@ -68,16 +63,21 @@ fn output_bar(parts: VecDeque<BarPart>, length: usize) -> String {
         if (part_len - label_len) % 2 == 1 {
             fill_count_after += 1;
         }
-        full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_before)).to_string();
+        full_bar += &part
+            .fill_style
+            .paint(&part.bar_char.to_string().repeat(fill_count_before))
+            .to_string();
         full_bar += &part.text_style.paint(&label).to_string();
-        full_bar += &part.fill_style.paint(&part.bar_char.to_string().repeat(fill_count_after)).to_string();
+        full_bar += &part
+            .fill_style
+            .paint(&part.bar_char.to_string().repeat(fill_count_after))
+            .to_string();
     }
 
     full_bar.push('▏');
 
     full_bar
 }
-
 
 /// Print memory stat numbers
 fn output_mem_stats(mem_info: &MemInfo, keys: Vec<&str>, total_key: &str) -> VecDeque<String> {
@@ -86,19 +86,23 @@ fn output_mem_stats(mem_info: &MemInfo, keys: Vec<&str>, total_key: &str) -> Vec
     let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
     for &key in keys.iter() {
         let size_str = ByteSize::kb(mem_info[key]).to_string();
-        let mut line: String = format!("{}: {}{}",
-                                       key,
-                                       " ".repeat(max_key_len - key.len() + 8 - size_str.len()),
-                                       size_str);
+        let mut line: String = format!(
+            "{}: {}{}",
+            key,
+            " ".repeat(max_key_len - key.len() + 8 - size_str.len()),
+            size_str
+        );
         if key != total_key {
-            line += &format!(" ({: >4.1}%)", 100.0 * mem_info[key] as f32 / mem_info[total_key] as f32);
+            line += &format!(
+                " ({: >4.1}%)",
+                100.0 * mem_info[key] as f32 / mem_info[total_key] as f32
+            );
         }
         lines.push_back(line);
     }
 
     lines
 }
-
 
 /// Output all memory info
 pub fn output_mem(mem_info: &MemInfo, term_width: usize) -> VecDeque<String> {
@@ -108,45 +112,61 @@ pub fn output_mem(mem_info: &MemInfo, term_width: usize) -> VecDeque<String> {
     // Memory
     //
 
-    lines.extend(output_mem_stats(&mem_info, vec!["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"], "MemTotal"));
+    lines.extend(output_mem_stats(
+        &mem_info,
+        vec!["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"],
+        "MemTotal",
+    ));
 
     let total_mem_mb = mem_info["MemTotal"] / 1024;
     let cache_mem_mb = mem_info["Cached"] / 1024;
     let buffer_mem_mb = mem_info["Buffers"] / 1024;
     let free_mem_mb = mem_info["MemFree"] / 1024;
-    let used_mem_mb  = total_mem_mb - cache_mem_mb - buffer_mem_mb - free_mem_mb;
+    let used_mem_mb = total_mem_mb - cache_mem_mb - buffer_mem_mb - free_mem_mb;
 
     let mut mem_bar_parts = VecDeque::new();
 
     let used_prct = 100.0 * used_mem_mb as f32 / total_mem_mb as f32;
-    let used_bar_text: Vec<String> = vec!["Used".to_string(),
-                                          format!(" {:.1}GB", used_mem_mb as f32 / 1024.0),
-                                          format!(" ({:.1}%)", used_prct)];
-    mem_bar_parts.push_back(BarPart{label: used_bar_text,
-                                    prct: used_prct,
-                                    text_style: Style::new().reverse(),
-                                    fill_style: Style::new(),
-                                    bar_char: '█'});
+    let used_bar_text: Vec<String> = vec![
+        "Used".to_string(),
+        format!(" {:.1}GB", used_mem_mb as f32 / 1024.0),
+        format!(" ({:.1}%)", used_prct),
+    ];
+    mem_bar_parts.push_back(BarPart {
+        label: used_bar_text,
+        prct: used_prct,
+        text_style: Style::new().reverse(),
+        fill_style: Style::new(),
+        bar_char: '█',
+    });
 
     let cached_prct = 100.0 * (cache_mem_mb + buffer_mem_mb) as f32 / total_mem_mb as f32;
-    let cached_bar_text: Vec<String> = vec!["Cached".to_string(),
-                                            format!(" {:.1}GB", (cache_mem_mb + buffer_mem_mb) as f32 / 1024.0),
-                                            format!(" ({:.1}%)", cached_prct)];
-    mem_bar_parts.push_back(BarPart{label: cached_bar_text,
-                                    prct: cached_prct,
-                                    text_style: Style::new().dimmed().reverse(),
-                                    fill_style: Style::new().dimmed(),
-                                    bar_char: '█'});
+    let cached_bar_text: Vec<String> = vec![
+        "Cached".to_string(),
+        format!(" {:.1}GB", (cache_mem_mb + buffer_mem_mb) as f32 / 1024.0),
+        format!(" ({:.1}%)", cached_prct),
+    ];
+    mem_bar_parts.push_back(BarPart {
+        label: cached_bar_text,
+        prct: cached_prct,
+        text_style: Style::new().dimmed().reverse(),
+        fill_style: Style::new().dimmed(),
+        bar_char: '█',
+    });
 
     let free_prct = 100.0 * free_mem_mb as f32 / total_mem_mb as f32;
-    let free_bar_text: Vec<String> = vec!["Free".to_string(),
-                                          format!(" {:.1}GB", free_mem_mb as f32 / 1024.0),
-                                          format!(" ({:.1}%)", free_prct)];
-    mem_bar_parts.push_back(BarPart{label: free_bar_text,
-                                    prct: free_prct,
-                                    text_style: Style::new(),
-                                    fill_style: Style::new(),
-                                    bar_char: ' '});
+    let free_bar_text: Vec<String> = vec![
+        "Free".to_string(),
+        format!(" {:.1}GB", free_mem_mb as f32 / 1024.0),
+        format!(" ({:.1}%)", free_prct),
+    ];
+    mem_bar_parts.push_back(BarPart {
+        label: free_bar_text,
+        prct: free_prct,
+        text_style: Style::new(),
+        fill_style: Style::new(),
+        bar_char: ' ',
+    });
 
     lines.push_back(output_bar(mem_bar_parts, term_width));
 
@@ -155,33 +175,45 @@ pub fn output_mem(mem_info: &MemInfo, term_width: usize) -> VecDeque<String> {
     //
 
     if mem_info["SwapTotal"] > 0 {
-        lines.extend(output_mem_stats(&mem_info, vec!["SwapTotal", "SwapFree"], "SwapTotal"));
+        lines.extend(output_mem_stats(
+            &mem_info,
+            vec!["SwapTotal", "SwapFree"],
+            "SwapTotal",
+        ));
 
         let total_swap_mb = mem_info["SwapTotal"] / 1024;
         let free_swap_mb = mem_info["SwapFree"] / 1024;
-        let used_swap_mb  = total_swap_mb - free_swap_mb;
+        let used_swap_mb = total_swap_mb - free_swap_mb;
 
         let mut swap_bar_parts = VecDeque::new();
 
         let used_prct = 100.0 * used_swap_mb as f32 / total_swap_mb as f32;
-        let used_bar_text: Vec<String> = vec!["Used".to_string(),
-                                              format!(" {:.1}GB", used_swap_mb as f32 / 1024.0),
-                                              format!(" ({:.1}%)", used_prct)];
-        swap_bar_parts.push_back(BarPart{label: used_bar_text,
-                                         prct: used_prct,
-                                         text_style: Style::new().reverse(),
-                                         fill_style: Style::new(),
-                                         bar_char: '█'});
+        let used_bar_text: Vec<String> = vec![
+            "Used".to_string(),
+            format!(" {:.1}GB", used_swap_mb as f32 / 1024.0),
+            format!(" ({:.1}%)", used_prct),
+        ];
+        swap_bar_parts.push_back(BarPart {
+            label: used_bar_text,
+            prct: used_prct,
+            text_style: Style::new().reverse(),
+            fill_style: Style::new(),
+            bar_char: '█',
+        });
 
         let free_prct = 100.0 * free_swap_mb as f32 / total_swap_mb as f32;
-        let free_bar_text: Vec<String> = vec!["Swap free".to_string(),
-                                              format!(" {:.1}GB", free_swap_mb as f32 / 1024.0),
-                                              format!(" ({:.1}%)", free_prct)];
-        swap_bar_parts.push_back(BarPart{label: free_bar_text,
-                                         prct: free_prct,
-                                         text_style: Style::new(),
-                                         fill_style: Style::new(),
-                                         bar_char: ' '});
+        let free_bar_text: Vec<String> = vec![
+            "Swap free".to_string(),
+            format!(" {:.1}GB", free_swap_mb as f32 / 1024.0),
+            format!(" ({:.1}%)", free_prct),
+        ];
+        swap_bar_parts.push_back(BarPart {
+            label: free_bar_text,
+            prct: free_prct,
+            text_style: Style::new(),
+            fill_style: Style::new(),
+            bar_char: ' ',
+        });
 
         lines.push_back(output_bar(swap_bar_parts, term_width));
     }
@@ -189,131 +221,219 @@ pub fn output_mem(mem_info: &MemInfo, term_width: usize) -> VecDeque<String> {
     lines
 }
 
-
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
 
     use ansi_term::Colour::*;
 
     #[test]
     fn test_output_bar() {
-        assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
-                                                                      "PART1".to_string(),
-                                                                      "P_A_R_T_1".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '#'},
-                                                  BarPart{label: vec!["part2".to_string(),
-                                                                      "PART2".to_string(),
-                                                                      "P_A_R_T_2".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: 'X'},
-                                                  BarPart{label: vec!["part3".to_string(),
-                                                                      "PART3".to_string(),
-                                                                      "P_A_R_T_3".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '%'}]),
-                              80),
-                   "▕###part1PART1P_A_R_T_1####XXXpart2PART2P_A_R_T_2XXXX%%%part3PART3P_A_R_T_3%%%%▏");
-        assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
-                                                                      "PART1".to_string(),
-                                                                      "P_A_R_T_1".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '#'},
-                                                  BarPart{label: vec!["part2".to_string(),
-                                                                      "PART2".to_string(),
-                                                                      "P_A_R_T_2".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: 'X'},
-                                                  BarPart{label: vec!["part3".to_string(),
-                                                                      "PART3".to_string(),
-                                                                      "P_A_R_T_3".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '%'}]),
-                              50),
-                   "▕###part1PART1###XXXpart2PART2XXX%%%part3PART3%%%▏");
-        assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
-                                                                      "PART1".to_string(),
-                                                                      "P_A_R_T_1".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '#'},
-                                                  BarPart{label: vec!["part2".to_string(),
-                                                                      "PART2".to_string(),
-                                                                      "P_A_R_T_2".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: 'X'},
-                                                  BarPart{label: vec!["part3".to_string(),
-                                                                      "PART3".to_string(),
-                                                                      "P_A_R_T_3".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '%'}]),
-                              30),
-                   "▕##part1##XXpart2XX%%part3%%▏");
-        assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
-                                                                      "PART1".to_string(),
-                                                                      "P_A_R_T_1".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '#'},
-                                                  BarPart{label: vec!["part2".to_string(),
-                                                                      "PART2".to_string(),
-                                                                      "P_A_R_T_2".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: 'X'},
-                                                  BarPart{label: vec!["part3".to_string(),
-                                                                      "PART3".to_string(),
-                                                                      "P_A_R_T_3".to_string()],
-                                                          prct: 100.0 / 3.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '%'}]),
-                              15),
-                   "▕####XXXX%%%%▏");
-        assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
-                                                                      "PART1".to_string(),
-                                                                      "P_A_R_T_1".to_string()],
-                                                          prct: 15.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '#'},
-                                                  BarPart{label: vec!["part2".to_string(),
-                                                                      "PART2".to_string(),
-                                                                      "P_A_R_T_2".to_string()],
-                                                          prct: 20.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: 'X'},
-                                                  BarPart{label: vec!["part3".to_string(),
-                                                                      "PART3".to_string(),
-                                                                      "P_A_R_T_3".to_string()],
-                                                          prct: 65.0,
-                                                          text_style: Style::new(),
-                                                          fill_style: Style::new(),
-                                                          bar_char: '%'}]),
-                              50),
-                   "▕#part1#part2PART2%%%%%%part3PART3P_A_R_T_3%%%%%%▏");
+        assert_eq!(
+            output_bar(
+                VecDeque::from(vec![
+                    BarPart {
+                        label: vec![
+                            "part1".to_string(),
+                            "PART1".to_string(),
+                            "P_A_R_T_1".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '#'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part2".to_string(),
+                            "PART2".to_string(),
+                            "P_A_R_T_2".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: 'X'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part3".to_string(),
+                            "PART3".to_string(),
+                            "P_A_R_T_3".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '%'
+                    }
+                ]),
+                80
+            ),
+            "▕###part1PART1P_A_R_T_1####XXXpart2PART2P_A_R_T_2XXXX%%%part3PART3P_A_R_T_3%%%%▏"
+        );
+        assert_eq!(
+            output_bar(
+                VecDeque::from(vec![
+                    BarPart {
+                        label: vec![
+                            "part1".to_string(),
+                            "PART1".to_string(),
+                            "P_A_R_T_1".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '#'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part2".to_string(),
+                            "PART2".to_string(),
+                            "P_A_R_T_2".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: 'X'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part3".to_string(),
+                            "PART3".to_string(),
+                            "P_A_R_T_3".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '%'
+                    }
+                ]),
+                50
+            ),
+            "▕###part1PART1###XXXpart2PART2XXX%%%part3PART3%%%▏"
+        );
+        assert_eq!(
+            output_bar(
+                VecDeque::from(vec![
+                    BarPart {
+                        label: vec![
+                            "part1".to_string(),
+                            "PART1".to_string(),
+                            "P_A_R_T_1".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '#'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part2".to_string(),
+                            "PART2".to_string(),
+                            "P_A_R_T_2".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: 'X'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part3".to_string(),
+                            "PART3".to_string(),
+                            "P_A_R_T_3".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '%'
+                    }
+                ]),
+                30
+            ),
+            "▕##part1##XXpart2XX%%part3%%▏"
+        );
+        assert_eq!(
+            output_bar(
+                VecDeque::from(vec![
+                    BarPart {
+                        label: vec![
+                            "part1".to_string(),
+                            "PART1".to_string(),
+                            "P_A_R_T_1".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '#'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part2".to_string(),
+                            "PART2".to_string(),
+                            "P_A_R_T_2".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: 'X'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part3".to_string(),
+                            "PART3".to_string(),
+                            "P_A_R_T_3".to_string()
+                        ],
+                        prct: 100.0 / 3.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '%'
+                    }
+                ]),
+                15
+            ),
+            "▕####XXXX%%%%▏"
+        );
+        assert_eq!(
+            output_bar(
+                VecDeque::from(vec![
+                    BarPart {
+                        label: vec![
+                            "part1".to_string(),
+                            "PART1".to_string(),
+                            "P_A_R_T_1".to_string()
+                        ],
+                        prct: 15.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '#'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part2".to_string(),
+                            "PART2".to_string(),
+                            "P_A_R_T_2".to_string()
+                        ],
+                        prct: 20.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: 'X'
+                    },
+                    BarPart {
+                        label: vec![
+                            "part3".to_string(),
+                            "PART3".to_string(),
+                            "P_A_R_T_3".to_string()
+                        ],
+                        prct: 65.0,
+                        text_style: Style::new(),
+                        fill_style: Style::new(),
+                        bar_char: '%'
+                    }
+                ]),
+                50
+            ),
+            "▕#part1#part2PART2%%%%%%part3PART3P_A_R_T_3%%%%%%▏"
+        );
         assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
                                                                       "PART1".to_string(),
                                                                       "P_A_R_T_1".to_string()],
@@ -346,14 +466,18 @@ mod tests
         mem_stats.insert("stat22222222".to_string(), 1234567);
         mem_stats.insert("stat3333".to_string(), 123456789);
         mem_stats.insert("itsatrap".to_string(), 999);
-        assert_eq!(output_mem_stats(&mem_stats,
-                                    vec!["stat1",
-                                         "stat22222222",
-                                         "stat3333"],
-                                    "stat3333"),
-                   ["stat1:        123.0 KB ( 0.0%)",
-                    "stat22222222:   1.2 GB ( 1.0%)",
-                    "stat3333:     123.5 GB"]);
+        assert_eq!(
+            output_mem_stats(
+                &mem_stats,
+                vec!["stat1", "stat22222222", "stat3333"],
+                "stat3333"
+            ),
+            [
+                "stat1:        123.0 KB ( 0.0%)",
+                "stat22222222:   1.2 GB ( 1.0%)",
+                "stat3333:     123.5 GB"
+            ]
+        );
     }
 
     #[test]

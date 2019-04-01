@@ -11,7 +11,6 @@ use std::str::FromStr;
 use ansi_term::Colour::*;
 use glob::glob;
 
-
 /// Type of temperature sensor
 enum SensorType {
     /// CPU sensor
@@ -21,7 +20,6 @@ enum SensorType {
     /// Other sensors (typically motherboard)
     OTHER,
 }
-
 
 /// Temperature data
 pub struct SensorTemp {
@@ -35,13 +33,11 @@ pub struct SensorTemp {
     /// Temperature above which component is considered anormally hot
     temp_warning: u32,
     /// Temperature above which component is considered critically hot
-    temp_critical: u32
+    temp_critical: u32,
 }
-
 
 /// Deque of fetched temperature data
 pub type TempDeque = VecDeque<SensorTemp>;
-
 
 /// Read temperature from a given hwmon sysfs file
 fn read_sysfs_temp_value(filepath: String) -> Option<u32> {
@@ -62,7 +58,6 @@ fn read_sysfs_temp_value(filepath: String) -> Option<u32> {
 
     Some(temp_val)
 }
-
 
 /// Probe temperatures from hwmon Linux sensors exposed in /sys/class/hwmon/
 pub fn get_hwmon_temps(temps: &mut TempDeque) {
@@ -91,24 +86,32 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
             let sensor_type;
             if label.starts_with("CPU ") || label.starts_with("Core ") {
                 sensor_type = SensorType::CPU;
-            }
-            else {
+            } else {
                 sensor_type = SensorType::OTHER;
             }
 
             // Read temp
-            let input_temp_filepath = format!("{}_input", input_label_filepath[..input_label_filepath.len() - 6].to_owned());
+            let input_temp_filepath = format!(
+                "{}_input",
+                input_label_filepath[..input_label_filepath.len() - 6].to_owned()
+            );
             let temp_val = match read_sysfs_temp_value(input_temp_filepath) {
                 Some(v) => v,
                 None => continue,
             };
 
             // Read warning temp
-            let max_temp_filepath = format!("{}_max", input_label_filepath[..input_label_filepath.len() - 6].to_owned());
+            let max_temp_filepath = format!(
+                "{}_max",
+                input_label_filepath[..input_label_filepath.len() - 6].to_owned()
+            );
             let max_temp_val = read_sysfs_temp_value(max_temp_filepath);
 
             // Read critical temp
-            let crit_temp_filepath = format!("{}_crit", input_label_filepath[..input_label_filepath.len() - 6].to_owned());
+            let crit_temp_filepath = format!(
+                "{}_crit",
+                input_label_filepath[..input_label_filepath.len() - 6].to_owned()
+            );
             let crit_temp_val = read_sysfs_temp_value(crit_temp_filepath);
 
             // Compute warning & critical temps
@@ -118,14 +121,17 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
                 let max_temp_val = max_temp_val.unwrap();
                 let crit_temp_val = crit_temp_val.unwrap();
                 let delta = match sensor_type {
-                    SensorType::CPU => (cmp::max(max_temp_val, crit_temp_val) - cmp::min(max_temp_val, crit_temp_val)) / 2,
+                    SensorType::CPU => {
+                        (cmp::max(max_temp_val, crit_temp_val)
+                            - cmp::min(max_temp_val, crit_temp_val))
+                            / 2
+                    }
                     SensorType::OTHER => 5,
                     _ => panic!(),
                 };
                 warning_temp = max_temp_val - delta;
                 crit_temp = max_temp_val;
-            }
-            else if max_temp_val.is_some() {
+            } else if max_temp_val.is_some() {
                 let max_temp_val = max_temp_val.unwrap();
                 let delta = match sensor_type {
                     SensorType::CPU => 10,
@@ -134,8 +140,7 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
                 };
                 warning_temp = max_temp_val - delta;
                 crit_temp = max_temp_val;
-            }
-            else {
+            } else {
                 warning_temp = match sensor_type {
                     // Fallback to default value
                     SensorType::CPU => 60,
@@ -151,16 +156,17 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
             }
 
             // Store temp
-            let sensor_temp = SensorTemp {name: label,
-                                          sensor_type: sensor_type,
-                                          temp: temp_val,
-                                          temp_warning: warning_temp,
-                                          temp_critical: crit_temp};
+            let sensor_temp = SensorTemp {
+                name: label,
+                sensor_type: sensor_type,
+                temp: temp_val,
+                temp_warning: warning_temp,
+                temp_critical: crit_temp,
+            };
             temps.push_back(sensor_temp);
         }
     }
 }
-
 
 /// Normalize a drive device path by making it absolute and following links
 fn normalize_drive_path(path: &str) -> String {
@@ -179,11 +185,11 @@ fn normalize_drive_path(path: &str) -> String {
     path_string
 }
 
-
 /// Probe drive temperatures from hddtemp daemon
 pub fn get_drive_temps(temps: &mut TempDeque) {
     // Connect
-    let mut stream = match TcpStream::connect("127.0.0.1:7634") {  // TODO port const
+    let mut stream = match TcpStream::connect("127.0.0.1:7634") {
+        // TODO port const
         Ok(s) => s,
         Err(_e) => return,
     };
@@ -200,82 +206,112 @@ pub fn get_drive_temps(temps: &mut TempDeque) {
         let temp = u32::from_str(drive_data[3]).unwrap();
 
         // Store temp
-        let sensor_temp = SensorTemp {name: format!("{} ({})", drive_path, pretty_name),
-                                      sensor_type: SensorType::DRIVE,
-                                      temp: temp,
-                                      temp_warning: 45,
-                                      temp_critical: 55};
+        let sensor_temp = SensorTemp {
+            name: format!("{} ({})", drive_path, pretty_name),
+            sensor_type: SensorType::DRIVE,
+            temp: temp,
+            temp_warning: 45,
+            temp_critical: 55,
+        };
         temps.push_back(sensor_temp);
     }
 }
-
 
 /// Colorize a string for terminal display according to temperature level
 fn colorize_from_temp(string: String, temp: u32, temp_warning: u32, temp_critical: u32) -> String {
     if temp >= temp_critical {
         Red.paint(string).to_string()
-    }
-    else if temp >= temp_warning {
+    } else if temp >= temp_warning {
         Yellow.paint(string).to_string()
-    }
-    else {
+    } else {
         string
     }
 }
-
 
 /// Output all temperatures
 pub fn output_temps(temps: TempDeque) -> VecDeque<String> {
     let mut lines: VecDeque<String> = VecDeque::new();
 
-    let max_name_len = temps.iter().max_by_key(|x| x.name.len()).unwrap().name.len();
+    let max_name_len = temps
+        .iter()
+        .max_by_key(|x| x.name.len())
+        .unwrap()
+        .name
+        .len();
     for sensor_temp in temps {
         let pad = " ".repeat(max_name_len - sensor_temp.name.len());
         let line = format!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
-        lines.push_back(colorize_from_temp(line,
-                                           sensor_temp.temp,
-                                           sensor_temp.temp_warning,
-                                           sensor_temp.temp_critical));
+        lines.push_back(colorize_from_temp(
+            line,
+            sensor_temp.temp,
+            sensor_temp.temp_warning,
+            sensor_temp.temp_critical,
+        ));
     }
 
     lines
 }
 
-
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use super::*;
 
     #[test]
     fn test_output_temps() {
-        assert_eq!(output_temps(TempDeque::from(vec![SensorTemp{name: "sensor1".to_string(),
-                                                                sensor_type: SensorType::CPU,
-                                                                temp: 95,
-                                                                temp_warning: 70,
-                                                                temp_critical: 80},
-                                                     SensorTemp{name: "sensor222222222".to_string(),
-                                                                sensor_type: SensorType::DRIVE,
-                                                                temp: 40,
-                                                                temp_warning: 70,
-                                                                temp_critical: 80},
-                                                     SensorTemp{name: "sensor333".to_string(),
-                                                                sensor_type: SensorType::OTHER,
-                                                                temp: 50,
-                                                                temp_warning: 45,
-                                                                temp_critical: 60}])),
-                   ["\u{1b}[31msensor1:         95 °C\u{1b}[0m",
-                    "sensor222222222: 40 °C",
-                    "\u{1b}[33msensor333:       50 °C\u{1b}[0m"]);
+        assert_eq!(
+            output_temps(TempDeque::from(vec![
+                SensorTemp {
+                    name: "sensor1".to_string(),
+                    sensor_type: SensorType::CPU,
+                    temp: 95,
+                    temp_warning: 70,
+                    temp_critical: 80
+                },
+                SensorTemp {
+                    name: "sensor222222222".to_string(),
+                    sensor_type: SensorType::DRIVE,
+                    temp: 40,
+                    temp_warning: 70,
+                    temp_critical: 80
+                },
+                SensorTemp {
+                    name: "sensor333".to_string(),
+                    sensor_type: SensorType::OTHER,
+                    temp: 50,
+                    temp_warning: 45,
+                    temp_critical: 60
+                }
+            ])),
+            [
+                "\u{1b}[31msensor1:         95 °C\u{1b}[0m",
+                "sensor222222222: 40 °C",
+                "\u{1b}[33msensor333:       50 °C\u{1b}[0m"
+            ]
+        );
     }
 
     #[test]
     fn test_colorize_from_temp() {
         assert_eq!(colorize_from_temp("hey".to_string(), 59, 60, 75), "hey");
-        assert_eq!(colorize_from_temp("hey".to_string(), 60, 60, 75), "\u{1b}[33mhey\u{1b}[0m");
-        assert_eq!(colorize_from_temp("hey".to_string(), 60, 60, 75), "\u{1b}[33mhey\u{1b}[0m");
-        assert_eq!(colorize_from_temp("hey".to_string(), 74, 60, 75), "\u{1b}[33mhey\u{1b}[0m");
-        assert_eq!(colorize_from_temp("hey".to_string(), 75, 60, 75), "\u{1b}[31mhey\u{1b}[0m");
-        assert_eq!(colorize_from_temp("hey".to_string(), 76, 60, 75), "\u{1b}[31mhey\u{1b}[0m");
+        assert_eq!(
+            colorize_from_temp("hey".to_string(), 60, 60, 75),
+            "\u{1b}[33mhey\u{1b}[0m"
+        );
+        assert_eq!(
+            colorize_from_temp("hey".to_string(), 60, 60, 75),
+            "\u{1b}[33mhey\u{1b}[0m"
+        );
+        assert_eq!(
+            colorize_from_temp("hey".to_string(), 74, 60, 75),
+            "\u{1b}[33mhey\u{1b}[0m"
+        );
+        assert_eq!(
+            colorize_from_temp("hey".to_string(), 75, 60, 75),
+            "\u{1b}[31mhey\u{1b}[0m"
+        );
+        assert_eq!(
+            colorize_from_temp("hey".to_string(), 76, 60, 75),
+            "\u{1b}[31mhey\u{1b}[0m"
+        );
     }
 }
