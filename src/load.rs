@@ -36,7 +36,7 @@ pub fn get_load_info() -> LoadInfo {
     load_info.load_avg_15m = f32::from_str(tokens_it.next().unwrap()).unwrap();
 
     load_info.task_count =
-        u32::from_str(tokens_it.next().unwrap().split('/').skip(1).next().unwrap()).unwrap();
+        u32::from_str(tokens_it.next().unwrap().split('/').nth(1).unwrap()).unwrap();
 
     load_info
 }
@@ -56,12 +56,11 @@ fn colorize_load(load: f32, cpu_count: usize) -> String {
 pub fn output_load_info(load_info: LoadInfo, default_cpu_count: usize) -> VecDeque<String> {
     let mut lines: VecDeque<String> = VecDeque::new();
 
-    let cpu_count;
-    if default_cpu_count == 0 {
-        cpu_count = num_cpus::get();
+    let cpu_count = if default_cpu_count == 0 {
+        num_cpus::get()
     } else {
-        cpu_count = default_cpu_count;
-    }
+        default_cpu_count
+    };
     lines.push_back(format!(
         "Load avg 1min: {}, 5 min: {}, 15 min: {}",
         colorize_load(load_info.load_avg_1m, cpu_count),

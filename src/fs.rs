@@ -65,7 +65,7 @@ pub fn get_fs_info() -> FsInfoVec {
 
         // Get filesystem info
         let mut new_fs_info = FsInfo {
-            mount_path: mount_path,
+            mount_path,
             used_bytes: 0,
             total_bytes: 0,
         };

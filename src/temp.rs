@@ -83,12 +83,11 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
             }
 
             // Deduce type from name
-            let sensor_type;
-            if label.starts_with("CPU ") || label.starts_with("Core ") {
-                sensor_type = SensorType::CPU;
+            let sensor_type= if label.starts_with("CPU ") || label.starts_with("Core ") {
+                SensorType::CPU
             } else {
-                sensor_type = SensorType::OTHER;
-            }
+                SensorType::OTHER
+            };
 
             // Read temp
             let input_temp_filepath = format!(
@@ -158,7 +157,7 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
             // Store temp
             let sensor_temp = SensorTemp {
                 name: label,
-                sensor_type: sensor_type,
+                sensor_type,
                 temp: temp_val,
                 temp_warning: warning_temp,
                 temp_critical: crit_temp,
@@ -199,7 +198,7 @@ pub fn get_drive_temps(temps: &mut TempDeque) {
     stream.read_to_string(&mut data).unwrap();
 
     // Parse
-    let drives_data: Vec<&str> = data.split("|").collect();
+    let drives_data: Vec<&str> = data.split('|').collect();
     for drive_data in drives_data.chunks_exact(5) {
         let drive_path = normalize_drive_path(drive_data[1]);
         let pretty_name = drive_data[2];
@@ -209,7 +208,7 @@ pub fn get_drive_temps(temps: &mut TempDeque) {
         let sensor_temp = SensorTemp {
             name: format!("{} ({})", drive_path, pretty_name),
             sensor_type: SensorType::DRIVE,
-            temp: temp,
+            temp,
             temp_warning: 45,
             temp_critical: 55,
         };
