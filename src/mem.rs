@@ -434,29 +434,47 @@ mod tests {
             ),
             "▕#part1#part2PART2%%%%%%part3PART3P_A_R_T_3%%%%%%▏"
         );
-        assert_eq!(output_bar(VecDeque::from(vec![BarPart{label: vec!["part1".to_string(),
-                                                                      "PART1".to_string(),
-                                                                      "P_A_R_T_1".to_string()],
-                                                          prct: 15.0,
-                                                          text_style: Red.bold(),
-                                                          fill_style: Red.underline(),
-                                                          bar_char: '#'},
-                                                  BarPart{label: vec!["part2".to_string(),
-                                                                      "PART2".to_string(),
-                                                                      "P_A_R_T_2".to_string()],
-                                                          prct: 20.0,
-                                                          text_style: Yellow.dimmed(),
-                                                          fill_style: Yellow.italic(),
-                                                          bar_char: 'X'},
-                                                  BarPart{label: vec!["part3".to_string(),
-                                                                      "PART3".to_string(),
-                                                                      "P_A_R_T_3".to_string()],
-                                                          prct: 65.0,
-                                                          text_style: Blue.reverse(),
-                                                          fill_style: Blue.blink(),
-                                                          bar_char: '%'}]),
-                              50),
-                   "▕\u{1b}[4;31m#\u{1b}[0m\u{1b}[1;31mpart1\u{1b}[0m\u{1b}[4;31m#\u{1b}[0m\u{1b}[3;33m\u{1b}[0m\u{1b}[2;33mpart2PART2\u{1b}[0m\u{1b}[3;33m\u{1b}[0m\u{1b}[5;34m%%%%%%\u{1b}[0m\u{1b}[7;34mpart3PART3P_A_R_T_3\u{1b}[0m\u{1b}[5;34m%%%%%%\u{1b}[0m▏");
+        assert_eq!(
+            output_bar(
+                VecDeque::from(vec![
+                    BarPart{
+                        label: vec![
+                            "part1".to_string(),
+                            "PART1".to_string(),
+                            "P_A_R_T_1".to_string()
+                        ],
+                        prct: 15.0,
+                        text_style: Red.bold(),
+                        fill_style: Red.underline(),
+                        bar_char: '#'
+                    },
+                    BarPart{
+                        label: vec![
+                            "part2".to_string(),
+                            "PART2".to_string(),
+                            "P_A_R_T_2".to_string()
+                        ],
+                        prct: 20.0,
+                        text_style: Yellow.dimmed(),
+                        fill_style: Yellow.italic(),
+                        bar_char: 'X'
+                    },
+                    BarPart{
+                        label: vec![
+                            "part3".to_string(),
+                            "PART3".to_string(),
+                            "P_A_R_T_3".to_string()
+                        ],
+                        prct: 65.0,
+                        text_style: Blue.reverse(),
+                        fill_style: Blue.blink(),
+                        bar_char: '%'
+                    }
+                ]),
+                50
+            ),
+            "▕\u{1b}[4;31m#\u{1b}[0m\u{1b}[1;31mpart1\u{1b}[0m\u{1b}[4;31m#\u{1b}[0m\u{1b}[3;33m\u{1b}[0m\u{1b}[2;33mpart2PART2\u{1b}[0m\u{1b}[3;33m\u{1b}[0m\u{1b}[5;34m%%%%%%\u{1b}[0m\u{1b}[7;34mpart3PART3P_A_R_T_3\u{1b}[0m\u{1b}[5;34m%%%%%%\u{1b}[0m▏"
+        );
     }
 
     #[test]
