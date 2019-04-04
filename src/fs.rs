@@ -273,7 +273,7 @@ mod tests {
         );
         assert_eq!(
             get_fs_bar(
-                &FsInfo{
+                &FsInfo {
                     mount_path: "/foo/bar".to_string(),
                     used_bytes: 4891011000,
                     total_bytes: 7891011000
