@@ -2,19 +2,25 @@ language: rust
 matrix:
   include:
     - rust: stable
-      env: CLIPPY=1 RUSTFMT=1
+      env: BUILD=1 TEST=1 CLIPPY=1 RUSTFMT=1
     - rust: beta
-      env: CLIPPY=0 RUSTFMT=0
+      env: BUILD=1 TEST=1 CLIPPY=0 RUSTFMT=0
+    - rust: beta
+      env: BUILD=0 TEST=0 CLIPPY=1 RUSTFMT=1
     - rust: nightly
-      env: CLIPPY=0 RUSTFMT=0
+      env: BUILD=1 TEST=1 CLIPPY=0 RUSTFMT=0
+    - rust: nightly
+      env: BUILD=0 TEST=0 CLIPPY=1 RUSTFMT=1
   allow_failures:
+    - rust: beta
+      env: BUILD=0 TEST=0 CLIPPY=1 RUSTFMT=1
     - rust: nightly
 before_script:
   - "if [ $CLIPPY -eq 1 ]; then rustup component add clippy; fi"
   - "if [ $RUSTFMT -eq 1 ]; then rustup component add rustfmt; fi"
 script:
-  - "cargo build --verbose --all"
-  - "cargo test --verbose --all"
+  - "if [ $BUILD -eq 1 ]; then cargo build --verbose --all; fi"
+  - "if [ $TEST -eq 1 ]; then cargo test --verbose --all; fi"
   - "if [ $CLIPPY -eq 1 ]; then cargo clippy --all-targets --all-features -- -D warnings -A clippy::unreadable_literal; fi"
   - "if [ $RUSTFMT -eq 1 ]; then cargo fmt --all -- --check; fi"
 notifications:
