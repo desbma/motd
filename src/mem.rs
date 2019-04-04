@@ -87,10 +87,11 @@ fn output_bar(parts: &VecDeque<BarPart>, length: usize) -> String {
         // Center bar text inside fill chars
         let label_len = label.len();
         let fill_count_before = (part_len - label_len) / 2;
-        let mut fill_count_after = fill_count_before;
-        if (part_len - label_len) % 2 == 1 {
-            fill_count_after += 1;
-        }
+        let fill_count_after = if (part_len - label_len) % 2 == 1 {
+            fill_count_before + 1
+        } else {
+            fill_count_before
+        };
         full_bar += &part
             .fill_style
             .paint(&part.bar_char.to_string().repeat(fill_count_before))
