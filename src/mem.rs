@@ -7,7 +7,7 @@ use std::str::FromStr;
 use ansi_term::Style;
 use bytesize::ByteSize;
 
-/// Map of memory usage info, unit is kB of page count
+/// Map of memory usage info, unit is kB or page count
 pub type MemInfo = HashMap<String, u64>;
 
 /// Fetch memory usage info from procfs
