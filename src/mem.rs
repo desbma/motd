@@ -706,5 +706,11 @@ mod tests {
                 "▕██\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███     ▏"
             ]
         );
+
+        let mut mem_stats = MemInfo::new();
+        mem_stats.insert("SwapTotal".to_string(), 0);
+        mem_stats.insert("SwapFree".to_string(), 0);
+        mem_stats.insert("itsatrap".to_string(), 1024);
+        assert!(output_swap(&mem_stats, 80).is_empty());
     }
 }
