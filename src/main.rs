@@ -74,6 +74,14 @@ fn main() {
         let lines = mem::output_mem(&mem_info, TERM_COLUMNS);
         output_lines(lines);
 
+        // Output swap usage
+        let lines = mem::output_swap(&mem_info, TERM_COLUMNS);
+        if !lines.is_empty() {
+            output_title("Swap");
+
+            output_lines(lines);
+        }
+
         output_title("Filesystem usage");
 
         // Get filesystem info
@@ -119,6 +127,14 @@ fn main() {
         // Output memory usage
         let lines = mem::output_mem(&mem_info, TERM_COLUMNS);
         output_lines(lines);
+
+        // Output swap usage
+        let lines = mem::output_swap(&mem_info, TERM_COLUMNS);
+        if !lines.is_empty() {
+            output_title("Swap");
+
+            output_lines(lines);
+        }
 
         output_title("Hardware temperatures");
 
