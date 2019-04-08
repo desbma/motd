@@ -660,20 +660,28 @@ mod tests {
         mem_stats.insert("Cached".to_string(), 3124);
         mem_stats.insert("Buffers".to_string(), 4321);
         mem_stats.insert("itsatrap".to_string(), 1024);
-        assert_eq!(output_mem(&mem_stats, 80),
-                   ["MemTotal:  12.3 MB",
-                    "MemFree:    1.2 MB (10.0%)",
-                    "Dirty:      2.1 MB (17.3%)",
-                    "Cached:     3.1 MB (25.3%)",
-                    "Buffers:    4.3 MB (35.0%)",
-                    "▕████\u{1b}[7mUsed 0.0GB (33.3%)\u{1b}[0m████\u{1b}[2m█████████████\u{1b}[0m\u{1b}[2;7mCached 0.0GB (58.3%)\u{1b}[0m\u{1b}[2m█████████████\u{1b}[0m Free ▏"]);
-        assert_eq!(output_mem(&mem_stats, 30),
-                   ["MemTotal:  12.3 MB",
-                    "MemFree:    1.2 MB (10.0%)",
-                    "Dirty:      2.1 MB (17.3%)",
-                    "Cached:     3.1 MB (25.3%)",
-                    "Buffers:    4.3 MB (35.0%)",
-                    "▕██\u{1b}[7mUsed\u{1b}[0m███\u{1b}[2m██\u{1b}[0m\u{1b}[2;7mCached 0.0GB\u{1b}[0m\u{1b}[2m██\u{1b}[0m   ▏"]);
+        assert_eq!(
+            output_mem(&mem_stats, 80),
+            [
+                "MemTotal:  12.3 MB",
+                "MemFree:    1.2 MB (10.0%)",
+                "Dirty:      2.1 MB (17.3%)",
+                "Cached:     3.1 MB (25.3%)",
+                "Buffers:    4.3 MB (35.0%)",
+                "▕████\u{1b}[7mUsed 0.0GB (33.3%)\u{1b}[0m████\u{1b}[2m█████████████\u{1b}[0m\u{1b}[2;7mCached 0.0GB (58.3%)\u{1b}[0m\u{1b}[2m█████████████\u{1b}[0m Free ▏"
+            ]
+        );
+        assert_eq!(
+            output_mem(&mem_stats, 30),
+            [
+                "MemTotal:  12.3 MB",
+                "MemFree:    1.2 MB (10.0%)",
+                "Dirty:      2.1 MB (17.3%)",
+                "Cached:     3.1 MB (25.3%)",
+                "Buffers:    4.3 MB (35.0%)",
+                "▕██\u{1b}[7mUsed\u{1b}[0m███\u{1b}[2m██\u{1b}[0m\u{1b}[2;7mCached 0.0GB\u{1b}[0m\u{1b}[2m██\u{1b}[0m   ▏"
+            ]
+        );
     }
 
     #[test]
@@ -682,10 +690,14 @@ mod tests {
         mem_stats.insert("SwapTotal".to_string(), 12345678);
         mem_stats.insert("SwapFree".to_string(), 2345678);
         mem_stats.insert("itsatrap".to_string(), 1024);
-        assert_eq!(output_swap(&mem_stats, 80),
-                   ["SwapTotal:  12.3 GB",
-                    "SwapFree:    2.3 GB (19.0%)",
-                    "▕██████████████████████\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███████████████████████Swap free 2.2GB▏"]);
+        assert_eq!(
+            output_swap(&mem_stats, 80),
+            [
+                "SwapTotal:  12.3 GB",
+                "SwapFree:    2.3 GB (19.0%)",
+                "▕██████████████████████\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███████████████████████Swap free 2.2GB▏"
+            ]
+        );
         assert_eq!(
             output_swap(&mem_stats, 30),
             [
