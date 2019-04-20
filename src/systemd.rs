@@ -13,11 +13,14 @@ pub fn get_failed_units(units: &mut FailedUnits) {
         .args(&["--no-legend", "--failed"])
         .stderr(Stdio::null())
         .output();
-    let stdout = match output {
-        Ok(o) => o.stdout,
-        Err(_e) => return,
-    };
-    for line in stdout.lines() {
+    if output.is_err() {
+        return;
+    }
+    let output = output.unwrap();
+    if !output.status.success() {
+        return;
+    }
+    for line in output.stdout.lines() {
         let line = line.unwrap();
         let mut tokens_it = line.split(' ');
         let unit = tokens_it.next().unwrap().to_string();
