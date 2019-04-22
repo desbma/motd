@@ -20,10 +20,11 @@ pub fn get_failed_units(units: &mut FailedUnits) {
     if !output.status.success() {
         return;
     }
-    for line in output.stdout.lines() {
-        let line = line.unwrap();
-        let mut tokens_it = line.split(' ');
-        let unit = tokens_it.next().unwrap().to_string();
+    for unit in output
+        .stdout
+        .lines()
+        .map(|l| l.unwrap().split(' ').next().unwrap().to_string())
+    {
         units.push_back(unit);
     }
 }
