@@ -4,10 +4,6 @@ version = "0.1.0"
 authors = ["desbma <desbma@users.noreply.github.com>"]
 edition = "2018"
 
-[features]
-default = ["worker_thread"]
-worker_thread = []
-
 [profile.release]
 panic = "abort"
 
