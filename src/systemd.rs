@@ -7,10 +7,21 @@ use ansi_term::Colour::*;
 /// Names of failed Systemd units
 pub type FailedUnits = VecDeque<String>;
 
+/// Systemd running mode
+pub enum SystemdMode {
+    System,
+    User,
+}
+
 /// Get name of Systemd units in failed state
-pub fn get_failed_units(units: &mut FailedUnits) {
+pub fn get_failed_units(units: &mut FailedUnits, mode: &SystemdMode) {
+    let mut args = match mode {
+        SystemdMode::System => vec![],
+        SystemdMode::User => vec!["--user"],
+    };
+    args.extend(&["--no-legend", "--failed"]);
     let output = Command::new("systemctl")
-        .args(&["--no-legend", "--failed"])
+        .args(&args)
         .stderr(Stdio::null())
         .output();
     if output.is_err() {

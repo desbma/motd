@@ -31,13 +31,15 @@ fn main() {
     if cfg!(feature = "worker_thread") {
         // Fetch systemd failed units in a background thread
         let (units_tx, units_rx) = mpsc::channel();
-        let mut failed_units = systemd::FailedUnits::new();
         thread::Builder::new()
             .name("systemd_worker".to_string())
             .spawn(move || {
-                // Get systemd failed units
-                systemd::get_failed_units(&mut failed_units);
-                units_tx.send(failed_units).unwrap();
+                for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
+                    // Get systemd failed units
+                    let mut failed_units = systemd::FailedUnits::new();
+                    systemd::get_failed_units(&mut failed_units, systemd_mode);
+                    units_tx.send(failed_units).unwrap();
+                }
             })
             .unwrap();
 
@@ -99,13 +101,21 @@ fn main() {
         output_lines(lines);
 
         // Get failed units
-        failed_units = units_rx.recv().unwrap();
-        if !failed_units.is_empty() {
-            output_title("Systemd failed units");
+        for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
+            let failed_units = units_rx.recv().unwrap();
+            if !failed_units.is_empty() {
+                output_title(&format!(
+                    "Systemd failed units ({})",
+                    match systemd_mode {
+                        systemd::SystemdMode::System => "system",
+                        systemd::SystemdMode::User => "user",
+                    }
+                ));
 
-            // Output them
-            let lines = systemd::output_failed_units(failed_units);
-            output_lines(lines);
+                // Output them
+                let lines = systemd::output_failed_units(failed_units);
+                output_lines(lines);
+            }
         }
     } else {
         output_title("Load");
@@ -157,15 +167,23 @@ fn main() {
         output_lines(lines);
 
         // Get systemd failed units
-        let mut failed_units = systemd::FailedUnits::new();
-        systemd::get_failed_units(&mut failed_units);
+        for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
+            let mut failed_units = systemd::FailedUnits::new();
+            systemd::get_failed_units(&mut failed_units, systemd_mode);
 
-        if !failed_units.is_empty() {
-            output_title("Systemd failed units");
+            if !failed_units.is_empty() {
+                output_title(&format!(
+                    "Systemd failed units ({})",
+                    match systemd_mode {
+                        systemd::SystemdMode::System => "system",
+                        systemd::SystemdMode::User => "user",
+                    }
+                ));
 
-            // Output them
-            let lines = systemd::output_failed_units(failed_units);
-            output_lines(lines);
+                // Output them
+                let lines = systemd::output_failed_units(failed_units);
+                output_lines(lines);
+            }
         }
     }
 }
