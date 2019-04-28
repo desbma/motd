@@ -202,7 +202,10 @@ pub fn get_drive_temps(temps: &mut TempDeque) {
     for drive_data in drives_data.chunks_exact(5) {
         let drive_path = normalize_drive_path(drive_data[1]);
         let pretty_name = drive_data[2];
-        let temp = u32::from_str(drive_data[3]).unwrap();
+        let temp = match u32::from_str(drive_data[3]) {
+            Ok(t) => t,
+            Err(_e) => continue,
+        };
 
         // Store temp
         let sensor_temp = SensorTemp {
