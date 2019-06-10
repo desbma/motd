@@ -12,12 +12,15 @@ mod temp;
 const TERM_COLUMNS: usize = 80; // TODO Get this dynamically?
 
 /// Output section header to stdout
-fn output_title(title: &str) {
+fn output_title(title: &str, loading: bool) {
     println!(
         "\n{:─^width$}",
         format!(" {} ", title),
         width = TERM_COLUMNS
     );
+    if loading {
+        print!("Loading...\r");
+    }
 }
 
 /// Output lines to stdout
@@ -55,7 +58,7 @@ fn main() {
         })
         .unwrap();
 
-    output_title("Load");
+    output_title("Load", false);
 
     // Get load info
     let load_info = load::get_load_info();
@@ -64,7 +67,7 @@ fn main() {
     let lines = load::output_load_info(load_info, 0);
     output_lines(lines);
 
-    output_title("Memory usage");
+    output_title("Memory usage", false);
 
     let mut mem_info = mem::MemInfo::new();
 
@@ -78,12 +81,12 @@ fn main() {
     // Output swap usage
     let lines = mem::output_swap(&mem_info, TERM_COLUMNS);
     if !lines.is_empty() {
-        output_title("Swap");
+        output_title("Swap", false);
 
         output_lines(lines);
     }
 
-    output_title("Filesystem usage");
+    output_title("Filesystem usage", false);
 
     // Get filesystem info
     let fs_info = fs::get_fs_info();
@@ -92,7 +95,7 @@ fn main() {
     let lines = fs::output_fs_info(fs_info, TERM_COLUMNS);
     output_lines(lines);
 
-    output_title("Hardware temperatures");
+    output_title("Hardware temperatures", true);
 
     // Output temps
     temps = temps_rx.recv().unwrap();
@@ -103,13 +106,16 @@ fn main() {
     for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
         let failed_units = units_rx.recv().unwrap();
         if !failed_units.is_empty() {
-            output_title(&format!(
-                "Systemd failed units ({})",
-                match systemd_mode {
-                    systemd::SystemdMode::System => "system",
-                    systemd::SystemdMode::User => "user",
-                }
-            ));
+            output_title(
+                &format!(
+                    "Systemd failed units ({})",
+                    match systemd_mode {
+                        systemd::SystemdMode::System => "system",
+                        systemd::SystemdMode::User => "user",
+                    }
+                ),
+                true,
+            );
 
             // Output them
             let lines = systemd::output_failed_units(failed_units);
