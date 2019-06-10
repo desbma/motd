@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
+use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
+
+use clap::{App, Arg};
 
 mod fs;
 mod load;
@@ -8,16 +11,18 @@ mod mem;
 mod systemd;
 mod temp;
 
-/// Terminal column count (width)
-const TERM_COLUMNS: usize = 80; // TODO Get this dynamically?
+/// Parsed command line arguments
+struct CLArgs {
+    /// Maximum terminal columns to use
+    term_columns: usize,
+}
+
+/// Default terminal column count (width)
+const DEFAULT_TERM_COLUMNS: usize = 80;
 
 /// Output section header to stdout
-fn output_title(title: &str, loading: bool) {
-    println!(
-        "\n{:─^width$}",
-        format!(" {} ", title),
-        width = TERM_COLUMNS
-    );
+fn output_title(title: &str, loading: bool, columns: usize) {
+    println!("\n{:─^width$}", format!(" {} ", title), width = columns);
     if loading {
         print!("Loading...\r");
     }
@@ -30,7 +35,49 @@ fn output_lines(lines: VecDeque<String>) {
     }
 }
 
+fn parse_cl_args() -> CLArgs {
+    let default_term_columns_string = DEFAULT_TERM_COLUMNS.to_string();
+
+    // clap arg matching
+    let matches = App::new("motd")
+        .version(env!("CARGO_PKG_VERSION"))
+        .about("Show dynamic summary of system information")
+        .author("desbma")
+        .arg(
+            Arg::with_name("COLUMNS")
+                .short("c")
+                .long("columns")
+                .takes_value(true)
+                .allow_hyphen_values(true)
+                .default_value(&default_term_columns_string)
+                .help("Maximum terminal columns to use. Set to 0 to autotetect."),
+        )
+        .get_matches();
+
+    // "post clap" parsing
+    CLArgs {
+        term_columns: match usize::from_str(matches.value_of("COLUMNS").unwrap())
+            .expect("invalid columns value")
+        {
+            // Autodetect
+            0 => {
+                termsize::get()
+                    // Detection failed, fallback to default
+                    .unwrap_or(termsize::Size {
+                        rows: 0,
+                        cols: DEFAULT_TERM_COLUMNS as u16,
+                    })
+                    .cols as usize
+            }
+            // Passthrough
+            v => v,
+        },
+    }
+}
+
 fn main() {
+    let cl_args = parse_cl_args();
+
     // Fetch systemd failed units in a background thread
     let (units_tx, units_rx) = mpsc::channel();
     thread::Builder::new()
@@ -58,7 +105,7 @@ fn main() {
         })
         .unwrap();
 
-    output_title("Load", false);
+    output_title("Load", false, cl_args.term_columns);
 
     // Get load info
     let load_info = load::get_load_info();
@@ -67,7 +114,7 @@ fn main() {
     let lines = load::output_load_info(load_info, 0);
     output_lines(lines);
 
-    output_title("Memory usage", false);
+    output_title("Memory usage", false, cl_args.term_columns);
 
     let mut mem_info = mem::MemInfo::new();
 
@@ -75,27 +122,27 @@ fn main() {
     mem::get_mem_info(&mut mem_info);
 
     // Output memory usage
-    let lines = mem::output_mem(&mem_info, TERM_COLUMNS);
+    let lines = mem::output_mem(&mem_info, cl_args.term_columns);
     output_lines(lines);
 
     // Output swap usage
-    let lines = mem::output_swap(&mem_info, TERM_COLUMNS);
+    let lines = mem::output_swap(&mem_info, cl_args.term_columns);
     if !lines.is_empty() {
-        output_title("Swap", false);
+        output_title("Swap", false, cl_args.term_columns);
 
         output_lines(lines);
     }
 
-    output_title("Filesystem usage", false);
+    output_title("Filesystem usage", false, cl_args.term_columns);
 
     // Get filesystem info
     let fs_info = fs::get_fs_info();
 
     // Output filesystem info
-    let lines = fs::output_fs_info(fs_info, TERM_COLUMNS);
+    let lines = fs::output_fs_info(fs_info, cl_args.term_columns);
     output_lines(lines);
 
-    output_title("Hardware temperatures", true);
+    output_title("Hardware temperatures", true, cl_args.term_columns);
 
     // Output temps
     temps = temps_rx.recv().unwrap();
@@ -115,6 +162,7 @@ fn main() {
                     }
                 ),
                 true,
+                cl_args.term_columns,
             );
 
             // Output them
