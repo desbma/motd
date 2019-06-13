@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::iter::Iterator;
 use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
@@ -11,10 +12,23 @@ mod mem;
 mod systemd;
 mod temp;
 
+enum Section {
+    Load,
+    Mem,
+    Swap,
+    FS,
+    Temps,
+    SDFailedUnits,
+}
+
 /// Parsed command line arguments
 struct CLArgs {
     /// Maximum terminal columns to use
     term_columns: usize,
+
+    /// Sections to display
+    #[allow(dead_code)]
+    sections: Vec<Section>,
 }
 
 /// Default terminal column count (width)
@@ -35,43 +49,108 @@ fn output_lines(lines: VecDeque<String>) {
     }
 }
 
-fn parse_cl_args() -> CLArgs {
-    let default_term_columns_string = DEFAULT_TERM_COLUMNS.to_string();
+fn section_to_letter(section: &Section) -> String {
+    match section {
+        Section::Load => "l".to_string(),
+        Section::Mem => "m".to_string(),
+        Section::Swap => "s".to_string(),
+        Section::FS => "f".to_string(),
+        Section::Temps => "t".to_string(),
+        Section::SDFailedUnits => "u".to_string(),
+    }
+}
 
-    // clap arg matching
+fn letter_to_section(letter: &str) -> Section {
+    match letter {
+        "l" => Section::Load,
+        "m" => Section::Mem,
+        "s" => Section::Swap,
+        "f" => Section::FS,
+        "t" => Section::Temps,
+        "u" => Section::SDFailedUnits,
+        _ => panic!(), // validated by clap
+    }
+}
+
+fn parse_cl_args() -> CLArgs {
+    // Default values
+    let default_term_columns_string = DEFAULT_TERM_COLUMNS.to_string();
+    let sections_string: Vec<String> = vec![
+        Section::Load,
+        Section::Mem,
+        Section::Swap,
+        Section::FS,
+        Section::Temps,
+        Section::SDFailedUnits,
+    ]
+    .iter()
+    .map(|s| section_to_letter(s))
+    .collect();
+    let default_sections_string = sections_string.join(",");
+    let sections_str: Vec<&str> = sections_string.iter().map(String::as_str).collect();
+
+    // Clap arg matching
     let matches = App::new("motd")
         .version(env!("CARGO_PKG_VERSION"))
         .about("Show dynamic summary of system information")
         .author("desbma")
+        .arg(
+            Arg::with_name("SECTIONS")
+                .short("s")
+                .long("sections")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .default_value(&default_sections_string)
+                .possible_values(&sections_str)
+                .help(
+                    "Sections to display. \
+                     l: Systemd load. \
+                     m: Memory. \
+                     s: Swap.\
+                     f: Filesystem. \
+                     t: Hardware temperatures. \
+                     u: Systemd failed units.",
+                ),
+        )
         .arg(
             Arg::with_name("COLUMNS")
                 .short("c")
                 .long("columns")
                 .takes_value(true)
                 .allow_hyphen_values(true)
+                // TODO add validator
                 .default_value(&default_term_columns_string)
                 .help("Maximum terminal columns to use. Set to 0 to autotetect."),
         )
         .get_matches();
 
-    // "post clap" parsing
+    // Post Clap parsing
+    let sections = matches
+        .values_of("SECTIONS")
+        .unwrap()
+        .map(|s| letter_to_section(s))
+        .collect();
+    let term_columns = match usize::from_str(matches.value_of("COLUMNS").unwrap())
+        .expect("invalid columns value")  // TODO better error handling
+    {
+        // Autodetect
+        0 => {
+            termsize::get()
+                // Detection failed, fallback to default
+                .unwrap_or(termsize::Size {
+                    rows: 0,
+                    cols: DEFAULT_TERM_COLUMNS as u16,
+                })
+                .cols as usize
+        }
+        // Passthrough
+        v => v,
+    };
+
     CLArgs {
-        term_columns: match usize::from_str(matches.value_of("COLUMNS").unwrap())
-            .expect("invalid columns value")
-        {
-            // Autodetect
-            0 => {
-                termsize::get()
-                    // Detection failed, fallback to default
-                    .unwrap_or(termsize::Size {
-                        rows: 0,
-                        cols: DEFAULT_TERM_COLUMNS as u16,
-                    })
-                    .cols as usize
-            }
-            // Passthrough
-            v => v,
-        },
+        sections,
+        term_columns,
     }
 }
 
