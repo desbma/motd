@@ -72,6 +72,13 @@ fn letter_to_section(letter: &str) -> Section {
     }
 }
 
+fn validator_usize(s: String) -> Result<(), String> {
+    match usize::from_str(&s) {
+        Ok(_) => Ok(()),
+        Err(_) => Err("Not a valid positive integer value".to_string()),
+    }
+}
+
 fn parse_cl_args() -> CLArgs {
     // Default values
     let default_term_columns_string = DEFAULT_TERM_COLUMNS.to_string();
@@ -119,7 +126,7 @@ fn parse_cl_args() -> CLArgs {
                 .long("columns")
                 .takes_value(true)
                 .allow_hyphen_values(true)
-                // TODO add validator
+                .validator(validator_usize)
                 .default_value(&default_term_columns_string)
                 .help("Maximum terminal columns to use. Set to 0 to autotetect."),
         )
@@ -131,9 +138,7 @@ fn parse_cl_args() -> CLArgs {
         .unwrap()
         .map(|s| letter_to_section(s))
         .collect();
-    let term_columns = match usize::from_str(matches.value_of("COLUMNS").unwrap())
-        .expect("invalid columns value")  // TODO better error handling
-    {
+    let term_columns = match usize::from_str(matches.value_of("COLUMNS").unwrap()).unwrap() {
         // Autodetect
         0 => {
             termsize::get()
