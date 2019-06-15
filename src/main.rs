@@ -36,11 +36,8 @@ struct CLArgs {
 const DEFAULT_TERM_COLUMNS: usize = 80;
 
 /// Output section header to stdout
-fn output_title(title: &str, loading: bool, columns: usize) {
+fn output_title(title: &str, columns: usize) {
     println!("\n{:─^width$}", format!(" {} ", title), width = columns);
-    if loading {
-        print!("Loading...\r");
-    }
 }
 
 /// Output lines to stdout
@@ -50,6 +47,34 @@ fn output_lines(lines: VecDeque<String>) {
     }
 }
 
+/// Output section title and lines
+fn output_section(
+    title: &str,
+    lines: Option<VecDeque<String>>,
+    lines_rx: Option<&mpsc::Receiver<VecDeque<String>>>,
+    columns: usize,
+) {
+    if lines_rx.is_some() {
+        print!("Loading...\r");
+    }
+
+    let lines = match lines_rx {
+        Some(chan) => chan.recv().unwrap(),
+        None => lines.unwrap(),
+    };
+
+    if lines_rx.is_some() {
+        print!("          \r");
+    }
+
+    if !lines.is_empty() {
+        output_title(title, columns);
+
+        output_lines(lines);
+    }
+}
+
+/// Get Section from letter
 fn section_to_letter(section: &Section) -> String {
     match section {
         Section::Load => "l".to_string(),
@@ -61,6 +86,7 @@ fn section_to_letter(section: &Section) -> String {
     }
 }
 
+/// Get letter from Section
 fn letter_to_section(letter: &str) -> Section {
     match letter {
         "l" => Section::Load,
@@ -166,7 +192,7 @@ fn main() {
     let cl_args = parse_cl_args();
 
     // Fetch systemd failed units in a background thread
-    let (units_tx, units_rx) = mpsc::channel();
+    let (unit_lines_tx, unit_lines_rx) = mpsc::channel();
     thread::Builder::new()
         .name("systemd_worker".to_string())
         .spawn(move || {
@@ -174,87 +200,75 @@ fn main() {
                 // Get systemd failed units
                 let mut failed_units = systemd::FailedUnits::new();
                 systemd::get_failed_units(&mut failed_units, systemd_mode);
-                units_tx.send(failed_units).unwrap();
+
+                // Format them to lines
+                let lines = systemd::output_failed_units(failed_units);
+
+                // Send them to main thread
+                unit_lines_tx.send(lines).unwrap();
             }
         })
         .unwrap();
 
     // Fetch temps in a background thread
-    let (temps_tx, temps_rx) = mpsc::channel();
-    let mut temps = temp::TempDeque::new();
+    let (temp_lines_tx, temp_lines_rx) = mpsc::channel();
     thread::Builder::new()
         .name("temp_worker".to_string())
         .spawn(move || {
             // Get temps
+            let mut temps = temp::TempDeque::new();
             temp::get_hwmon_temps(&mut temps);
             temp::get_drive_temps(&mut temps);
-            temps_tx.send(temps).unwrap();
+
+            // Format them to lines
+            let lines = temp::output_temps(temps);
+
+            // Send them to main thread
+            temp_lines_tx.send(lines).unwrap();
         })
         .unwrap();
 
-    output_title("Load", false, cl_args.term_columns);
-
-    // Get load info
+    // Load info
     let load_info = load::get_load_info();
-
-    // Output load info
     let lines = load::output_load_info(load_info, 0);
-    output_lines(lines);
+    output_section("Load", Some(lines), None, cl_args.term_columns);
 
-    output_title("Memory usage", false, cl_args.term_columns);
-
+    // Memory usage
     let mut mem_info = mem::MemInfo::new();
-
-    // Get all memory usage info
     mem::get_mem_info(&mut mem_info);
-
-    // Output memory usage
     let lines = mem::output_mem(&mem_info, cl_args.term_columns);
-    output_lines(lines);
+    output_section("Memory usage", Some(lines), None, cl_args.term_columns);
 
-    // Output swap usage
+    // Swap usage
     let lines = mem::output_swap(&mem_info, cl_args.term_columns);
-    if !lines.is_empty() {
-        output_title("Swap", false, cl_args.term_columns);
+    output_section("Swap", Some(lines), None, cl_args.term_columns);
 
-        output_lines(lines);
-    }
-
-    output_title("Filesystem usage", false, cl_args.term_columns);
-
-    // Get filesystem info
+    // Filesystem info
     let fs_info = fs::get_fs_info();
-
-    // Output filesystem info
     let lines = fs::output_fs_info(fs_info, cl_args.term_columns);
-    output_lines(lines);
+    output_section("Filesystem usage", Some(lines), None, cl_args.term_columns);
 
-    output_title("Hardware temperatures", true, cl_args.term_columns);
+    // Temps
+    output_section(
+        "Hardware temperatures",
+        None,
+        Some(&temp_lines_rx),
+        cl_args.term_columns,
+    );
 
-    // Output temps
-    temps = temps_rx.recv().unwrap();
-    let lines = temp::output_temps(temps);
-    output_lines(lines);
-
-    // Get failed units
+    // Systemd failed units
     for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
-        let failed_units = units_rx.recv().unwrap();
-        if !failed_units.is_empty() {
-            output_title(
-                &format!(
-                    "Systemd failed units ({})",
-                    match systemd_mode {
-                        systemd::SystemdMode::System => "system",
-                        systemd::SystemdMode::User => "user",
-                    }
-                ),
-                true,
-                cl_args.term_columns,
-            );
-
-            // Output them
-            let lines = systemd::output_failed_units(failed_units);
-            output_lines(lines);
-        }
+        output_section(
+            &format!(
+                "Systemd failed units ({})",
+                match systemd_mode {
+                    systemd::SystemdMode::System => "system",
+                    systemd::SystemdMode::User => "user",
+                }
+            ),
+            None,
+            Some(&unit_lines_rx),
+            cl_args.term_columns,
+        );
     }
 }
