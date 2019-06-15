@@ -1,4 +1,6 @@
 use std::collections::VecDeque;
+use std::io;
+use std::io::prelude::*;
 use std::iter::Iterator;
 use std::str::FromStr;
 use std::sync::mpsc;
@@ -56,6 +58,7 @@ fn output_section(
 ) {
     if lines_rx.is_some() {
         print!("Loading...\r");
+        io::stdout().flush().unwrap();
     }
 
     let lines = match lines_rx {
@@ -65,6 +68,7 @@ fn output_section(
 
     if lines_rx.is_some() {
         print!("          \r");
+        io::stdout().flush().unwrap();
     }
 
     if !lines.is_empty() {
