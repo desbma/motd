@@ -81,7 +81,7 @@ fn output_section(
 }
 
 /// Get Section from letter
-fn section_to_letter(section: &Section) -> String {
+fn section_to_letter(section: Section) -> String {
     match section {
         Section::Load => "l".to_string(),
         Section::Mem => "m".to_string(),
@@ -126,7 +126,7 @@ fn parse_cl_args() -> CLArgs {
         Section::SDFailedUnits,
     ]
     .iter()
-    .map(|s| section_to_letter(s))
+    .map(|s| section_to_letter(*s))
     .collect();
     let default_sections_string = sections_string.join(",");
     let sections_str: Vec<&str> = sections_string.iter().map(String::as_str).collect();
