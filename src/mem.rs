@@ -11,7 +11,8 @@ use bytesize::ByteSize;
 pub type MemInfo = HashMap<String, u64>;
 
 /// Fetch memory usage info from procfs
-pub fn get_mem_info(mem_info: &mut MemInfo) {
+pub fn get_mem_info() -> MemInfo {
+    let mut mem_info = MemInfo::new();
     let file = File::open("/proc/meminfo").unwrap();
     let reader = BufReader::new(file);
     for line in reader.lines() {
@@ -25,6 +26,8 @@ pub fn get_mem_info(mem_info: &mut MemInfo) {
         // Store info
         mem_info.insert(key, val);
     }
+
+    mem_info
 }
 
 /// Memory bar section

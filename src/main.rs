@@ -232,47 +232,69 @@ fn main() {
         })
         .unwrap();
 
-    // Load info
-    let load_info = load::get_load_info();
-    let lines = load::output_load_info(load_info, 0);
-    output_section("Load", Some(lines), None, cl_args.term_columns);
+    let mut mem_info: Option<mem::MemInfo> = None;
 
-    // Memory usage
-    let mut mem_info = mem::MemInfo::new();
-    mem::get_mem_info(&mut mem_info);
-    let lines = mem::output_mem(&mem_info, cl_args.term_columns);
-    output_section("Memory usage", Some(lines), None, cl_args.term_columns);
+    for section in cl_args.sections {
+        match section {
+            Section::Load => {
+                // Load info
+                let load_info = load::get_load_info();
+                let lines = load::output_load_info(load_info, 0);
+                output_section("Load", Some(lines), None, cl_args.term_columns);
+            }
 
-    // Swap usage
-    let lines = mem::output_swap(&mem_info, cl_args.term_columns);
-    output_section("Swap", Some(lines), None, cl_args.term_columns);
-
-    // Filesystem info
-    let fs_info = fs::get_fs_info();
-    let lines = fs::output_fs_info(fs_info, cl_args.term_columns);
-    output_section("Filesystem usage", Some(lines), None, cl_args.term_columns);
-
-    // Temps
-    output_section(
-        "Hardware temperatures",
-        None,
-        Some(&temp_lines_rx),
-        cl_args.term_columns,
-    );
-
-    // Systemd failed units
-    for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
-        output_section(
-            &format!(
-                "Systemd failed units ({})",
-                match systemd_mode {
-                    systemd::SystemdMode::System => "system",
-                    systemd::SystemdMode::User => "user",
+            Section::Mem => {
+                // Memory usage
+                if (&mem_info).is_none() {
+                    mem_info = Some(mem::get_mem_info());
                 }
-            ),
-            None,
-            Some(&unit_lines_rx),
-            cl_args.term_columns,
-        );
+                let lines = mem::output_mem(&(mem_info.as_ref()).unwrap(), cl_args.term_columns);
+                output_section("Memory usage", Some(lines), None, cl_args.term_columns);
+            }
+
+            Section::Swap => {
+                // Swap usage
+                if (&mem_info).is_none() {
+                    mem_info = Some(mem::get_mem_info());
+                }
+                let lines = mem::output_swap(&(mem_info.as_ref()).unwrap(), cl_args.term_columns);
+                output_section("Swap", Some(lines), None, cl_args.term_columns);
+            }
+
+            Section::FS => {
+                // Filesystem info
+                let fs_info = fs::get_fs_info();
+                let lines = fs::output_fs_info(fs_info, cl_args.term_columns);
+                output_section("Filesystem usage", Some(lines), None, cl_args.term_columns);
+            }
+
+            Section::Temps => {
+                // Temps
+                output_section(
+                    "Hardware temperatures",
+                    None,
+                    Some(&temp_lines_rx),
+                    cl_args.term_columns,
+                );
+            }
+
+            Section::SDFailedUnits => {
+                // Systemd failed units
+                for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
+                    output_section(
+                        &format!(
+                            "Systemd failed units ({})",
+                            match systemd_mode {
+                                systemd::SystemdMode::System => "system",
+                                systemd::SystemdMode::User => "user",
+                            }
+                        ),
+                        None,
+                        Some(&unit_lines_rx),
+                        cl_args.term_columns,
+                    );
+                }
+            }
+        }
     }
 }
