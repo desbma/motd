@@ -12,6 +12,7 @@ mod mem;
 mod systemd;
 mod temp;
 
+/// Output section
 enum Section {
     Load,
     Mem,
@@ -72,6 +73,7 @@ fn letter_to_section(letter: &str) -> Section {
     }
 }
 
+/// Validate a usize integer string for Clap usage
 fn validator_usize(s: String) -> Result<(), String> {
     match usize::from_str(&s) {
         Ok(_) => Ok(()),
@@ -79,6 +81,7 @@ fn validator_usize(s: String) -> Result<(), String> {
     }
 }
 
+/// Parse and validate command line arguments
 fn parse_cl_args() -> CLArgs {
     // Default values
     let default_term_columns_string = DEFAULT_TERM_COLUMNS.to_string();
