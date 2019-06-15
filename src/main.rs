@@ -7,6 +7,7 @@ use std::sync::mpsc;
 use std::thread;
 
 use clap::{App, Arg};
+use itertools::Itertools;
 
 mod fs;
 mod load;
@@ -15,6 +16,7 @@ mod systemd;
 mod temp;
 
 /// Output section
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 enum Section {
     Load,
     Mem,
@@ -170,6 +172,7 @@ fn parse_cl_args() -> CLArgs {
         .values_of("SECTIONS")
         .unwrap()
         .map(|s| letter_to_section(s))
+        .unique()
         .collect();
     let term_columns = match usize::from_str(matches.value_of("COLUMNS").unwrap()).unwrap() {
         // Autodetect
