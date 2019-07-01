@@ -250,6 +250,8 @@ fn main() {
 
     let mut mem_info: Option<mem::MemInfo> = None;
 
+    let last_section = *cl_args.sections.last().unwrap();
+
     for section in cl_args.sections {
         match section {
             Section::Load => {
@@ -337,6 +339,10 @@ fn main() {
                     );
                 }
             }
+        }
+
+        if !cl_args.show_section_titles && (section != last_section) {
+            println!();
         }
     }
 }
