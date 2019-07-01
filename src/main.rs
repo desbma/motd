@@ -32,8 +32,10 @@ struct CLArgs {
     term_columns: usize,
 
     /// Sections to display
-    #[allow(dead_code)]
     sections: Vec<Section>,
+
+    /// Whether or not to display each section title
+    show_section_titles: bool,
 }
 
 /// Default terminal column count (width)
@@ -56,6 +58,7 @@ fn output_section(
     title: &str,
     lines: Option<VecDeque<String>>,
     lines_rx: Option<&mpsc::Receiver<VecDeque<String>>>,
+    show_title: bool,
     columns: usize,
 ) {
     if lines_rx.is_some() {
@@ -74,7 +77,9 @@ fn output_section(
     }
 
     if !lines.is_empty() {
-        output_title(title, columns);
+        if show_title {
+            output_title(title, columns);
+        }
 
         output_lines(lines);
     }
@@ -156,6 +161,12 @@ fn parse_cl_args() -> CLArgs {
                 ),
         )
         .arg(
+            Arg::with_name("NO_TITLES")
+                .short("n")
+                .long("no-titles")
+                .help("Do not display section titles."),
+        )
+        .arg(
             Arg::with_name("COLUMNS")
                 .short("c")
                 .long("columns")
@@ -188,10 +199,12 @@ fn parse_cl_args() -> CLArgs {
         // Passthrough
         v => v,
     };
+    let show_section_titles = !matches.is_present("NO_TITLES");
 
     CLArgs {
         sections,
         term_columns,
+        show_section_titles,
     }
 }
 
@@ -243,7 +256,13 @@ fn main() {
                 // Load info
                 let load_info = load::get_load_info();
                 let lines = load::output_load_info(load_info, 0);
-                output_section("Load", Some(lines), None, cl_args.term_columns);
+                output_section(
+                    "Load",
+                    Some(lines),
+                    None,
+                    cl_args.show_section_titles,
+                    cl_args.term_columns,
+                );
             }
 
             Section::Mem => {
@@ -252,7 +271,13 @@ fn main() {
                     mem_info = Some(mem::get_mem_info());
                 }
                 let lines = mem::output_mem(&(mem_info.as_ref()).unwrap(), cl_args.term_columns);
-                output_section("Memory usage", Some(lines), None, cl_args.term_columns);
+                output_section(
+                    "Memory usage",
+                    Some(lines),
+                    None,
+                    cl_args.show_section_titles,
+                    cl_args.term_columns,
+                );
             }
 
             Section::Swap => {
@@ -261,14 +286,26 @@ fn main() {
                     mem_info = Some(mem::get_mem_info());
                 }
                 let lines = mem::output_swap(&(mem_info.as_ref()).unwrap(), cl_args.term_columns);
-                output_section("Swap", Some(lines), None, cl_args.term_columns);
+                output_section(
+                    "Swap",
+                    Some(lines),
+                    None,
+                    cl_args.show_section_titles,
+                    cl_args.term_columns,
+                );
             }
 
             Section::FS => {
                 // Filesystem info
                 let fs_info = fs::get_fs_info();
                 let lines = fs::output_fs_info(fs_info, cl_args.term_columns);
-                output_section("Filesystem usage", Some(lines), None, cl_args.term_columns);
+                output_section(
+                    "Filesystem usage",
+                    Some(lines),
+                    None,
+                    cl_args.show_section_titles,
+                    cl_args.term_columns,
+                );
             }
 
             Section::Temps => {
@@ -277,6 +314,7 @@ fn main() {
                     "Hardware temperatures",
                     None,
                     Some(&temp_lines_rx),
+                    cl_args.show_section_titles,
                     cl_args.term_columns,
                 );
             }
@@ -294,6 +332,7 @@ fn main() {
                         ),
                         None,
                         Some(&unit_lines_rx),
+                        cl_args.show_section_titles,
                         cl_args.term_columns,
                     );
                 }
