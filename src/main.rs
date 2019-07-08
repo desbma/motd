@@ -42,8 +42,11 @@ struct CLArgs {
 const DEFAULT_TERM_COLUMNS: usize = 80;
 
 /// Output section header to stdout
-fn output_title(title: &str, columns: usize) {
-    println!("\n{:─^width$}", format!(" {} ", title), width = columns);
+fn output_title(title: &str, columns: usize, new_line: bool) {
+    if new_line {
+        println!();
+    }
+    println!("{:─^width$}", format!(" {} ", title), width = columns);
 }
 
 /// Output lines to stdout
@@ -59,6 +62,7 @@ fn output_section(
     lines: Option<VecDeque<String>>,
     lines_rx: Option<&mpsc::Receiver<VecDeque<String>>>,
     show_title: bool,
+    first_section: bool,
     columns: usize,
 ) {
     if lines_rx.is_some() {
@@ -78,7 +82,9 @@ fn output_section(
 
     if !lines.is_empty() {
         if show_title {
-            output_title(title, columns);
+            output_title(title, columns, !first_section);
+        } else if !first_section {
+            println!();
         }
 
         output_lines(lines);
@@ -261,7 +267,7 @@ fn main() {
 
     let mut mem_info: Option<mem::MemInfo> = None;
 
-    let last_section = *cl_args.sections.last().unwrap();
+    let first_section = *cl_args.sections.first().unwrap();
 
     for section in cl_args.sections {
         match section {
@@ -274,6 +280,7 @@ fn main() {
                     Some(lines),
                     None,
                     cl_args.show_section_titles,
+                    section == first_section,
                     cl_args.term_columns,
                 );
             }
@@ -289,6 +296,7 @@ fn main() {
                     Some(lines),
                     None,
                     cl_args.show_section_titles,
+                    section == first_section,
                     cl_args.term_columns,
                 );
             }
@@ -304,6 +312,7 @@ fn main() {
                     Some(lines),
                     None,
                     cl_args.show_section_titles,
+                    section == first_section,
                     cl_args.term_columns,
                 );
             }
@@ -317,6 +326,7 @@ fn main() {
                     Some(lines),
                     None,
                     cl_args.show_section_titles,
+                    section == first_section,
                     cl_args.term_columns,
                 );
             }
@@ -339,6 +349,7 @@ fn main() {
                     lines,
                     temp_lines_rx.as_ref(),
                     cl_args.show_section_titles,
+                    section == first_section,
                     cl_args.term_columns,
                 );
             }
@@ -363,14 +374,11 @@ fn main() {
                         lines,
                         unit_lines_rx.as_ref(),
                         cl_args.show_section_titles,
+                        section == first_section,
                         cl_args.term_columns,
                     );
                 }
             }
-        }
-
-        if !cl_args.show_section_titles && (section != last_section) {
-            println!();
         }
     }
 }
