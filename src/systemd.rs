@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 use ansi_term::Colour::*;
 
 /// Names of failed Systemd units
-pub type FailedUnits = VecDeque<String>;
+type FailedUnits = VecDeque<String>;
 
 /// Systemd running mode
 pub enum SystemdMode {
@@ -14,7 +14,9 @@ pub enum SystemdMode {
 }
 
 /// Get name of Systemd units in failed state
-pub fn get_failed_units(units: &mut FailedUnits, mode: &SystemdMode) {
+pub fn get_failed_units(mode: &SystemdMode) -> FailedUnits {
+    let mut units: FailedUnits = FailedUnits::new();
+
     let mut args = match mode {
         SystemdMode::System => vec![],
         SystemdMode::User => vec!["--user"],
@@ -25,11 +27,11 @@ pub fn get_failed_units(units: &mut FailedUnits, mode: &SystemdMode) {
         .stderr(Stdio::null())
         .output();
     if output.is_err() {
-        return;
+        return units;
     }
     let output = output.unwrap();
     if !output.status.success() {
-        return;
+        return units;
     }
     for unit in output
         .stdout
@@ -38,6 +40,8 @@ pub fn get_failed_units(units: &mut FailedUnits, mode: &SystemdMode) {
     {
         units.push_back(unit);
     }
+
+    units
 }
 
 /// Output names of Systemd units in failed state

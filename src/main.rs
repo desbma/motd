@@ -211,42 +211,53 @@ fn parse_cl_args() -> CLArgs {
 fn main() {
     let cl_args = parse_cl_args();
 
-    // Fetch systemd failed units in a background thread
-    let (unit_lines_tx, unit_lines_rx) = mpsc::channel();
-    thread::Builder::new()
-        .name("systemd_worker".to_string())
-        .spawn(move || {
-            for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
-                // Get systemd failed units
-                let mut failed_units = systemd::FailedUnits::new();
-                systemd::get_failed_units(&mut failed_units, systemd_mode);
+    // Fetch systemd failed units in a background thread if needed
+    let mut unit_lines_rx: Option<mpsc::Receiver<VecDeque<String>>> = None;
+    if cl_args.sections.contains(&Section::SDFailedUnits)
+        && (*cl_args.sections.first().unwrap() != Section::SDFailedUnits)
+    {
+        let (chan_tx, chan_rx) = mpsc::channel();
+        unit_lines_rx = Some(chan_rx);
+        thread::Builder::new()
+            .name("systemd_worker".to_string())
+            .spawn(move || {
+                for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
+                    // Get systemd failed units
+                    let failed_units = systemd::get_failed_units(systemd_mode);
+
+                    // Format them to lines
+                    let lines = systemd::output_failed_units(failed_units);
+
+                    // Send them to main thread
+                    chan_tx.send(lines).unwrap();
+                }
+            })
+            .unwrap();
+    }
+
+    // Fetch temps in a background thread if needed
+    let mut temp_lines_rx: Option<mpsc::Receiver<VecDeque<String>>> = None;
+    if cl_args.sections.contains(&Section::Temps)
+        && (*cl_args.sections.first().unwrap() != Section::Temps)
+    {
+        let (chan_tx, chan_rx) = mpsc::channel();
+        temp_lines_rx = Some(chan_rx);
+        thread::Builder::new()
+            .name("temp_worker".to_string())
+            .spawn(move || {
+                // Get temps
+                let mut temps = temp::TempDeque::new();
+                temp::get_hwmon_temps(&mut temps);
+                temp::get_drive_temps(&mut temps);
 
                 // Format them to lines
-                let lines = systemd::output_failed_units(failed_units);
+                let lines = temp::output_temps(temps);
 
                 // Send them to main thread
-                unit_lines_tx.send(lines).unwrap();
-            }
-        })
-        .unwrap();
-
-    // Fetch temps in a background thread
-    let (temp_lines_tx, temp_lines_rx) = mpsc::channel();
-    thread::Builder::new()
-        .name("temp_worker".to_string())
-        .spawn(move || {
-            // Get temps
-            let mut temps = temp::TempDeque::new();
-            temp::get_hwmon_temps(&mut temps);
-            temp::get_drive_temps(&mut temps);
-
-            // Format them to lines
-            let lines = temp::output_temps(temps);
-
-            // Send them to main thread
-            temp_lines_tx.send(lines).unwrap();
-        })
-        .unwrap();
+                chan_tx.send(lines).unwrap();
+            })
+            .unwrap();
+    }
 
     let mut mem_info: Option<mem::MemInfo> = None;
 
@@ -312,10 +323,22 @@ fn main() {
 
             Section::Temps => {
                 // Temps
+                let lines = if temp_lines_rx.is_none() {
+                    // Get temps
+                    let mut temps = temp::TempDeque::new();
+                    temp::get_hwmon_temps(&mut temps);
+                    temp::get_drive_temps(&mut temps);
+
+                    // Format them to lines
+                    Some(temp::output_temps(temps))
+                }
+                else {
+                    None
+                };
                 output_section(
                     "Hardware temperatures",
-                    None,
-                    Some(&temp_lines_rx),
+                    lines,
+                    temp_lines_rx.as_ref(),
                     cl_args.show_section_titles,
                     cl_args.term_columns,
                 );
@@ -324,6 +347,12 @@ fn main() {
             Section::SDFailedUnits => {
                 // Systemd failed units
                 for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
+                    let lines = match unit_lines_rx {
+                        Some(_) => None,
+                        None => Some(systemd::output_failed_units(systemd::get_failed_units(
+                            systemd_mode,
+                        ))),
+                    };
                     output_section(
                         &format!(
                             "Systemd failed units ({})",
@@ -332,8 +361,8 @@ fn main() {
                                 systemd::SystemdMode::User => "user",
                             }
                         ),
-                        None,
-                        Some(&unit_lines_rx),
+                        lines,
+                        unit_lines_rx.as_ref(),
                         cl_args.show_section_titles,
                         cl_args.term_columns,
                     );
