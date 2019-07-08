@@ -331,8 +331,7 @@ fn main() {
 
                     // Format them to lines
                     Some(temp::output_temps(temps))
-                }
-                else {
+                } else {
                     None
                 };
                 output_section(
