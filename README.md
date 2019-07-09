@@ -1,7 +1,8 @@
 MOTD
 ====
 
-[![Build status](https://img.shields.io/travis/desbma/motd/master.svg?label=tests&style=flat)](https://travis-ci.org/desbma/motd)
+[![Build status](https://img.shields.io/travis/desbma/motd/master.svg?style=flat)](https://travis-ci.org/desbma/motd)
+[![AUR version](https://img.shields.io/aur/version/motd.svg?style=flat)](https://aur.archlinux.org/packages/motd/)
 [![License](https://img.shields.io/github/license/desbma/motd.svg?style=flat)](https://github.com/desbma/motd/blob/master/LICENSE)
 
 Dynamically generate Linux MOTD SSH banner
