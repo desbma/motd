@@ -12,6 +12,7 @@ use ansi_term::Colour::*;
 use glob::glob;
 
 /// Type of temperature sensor
+#[derive(PartialEq)]
 enum SensorType {
     /// CPU sensor
     CPU,
@@ -117,17 +118,19 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
             let warning_temp;
             let crit_temp;
             if max_temp_val.is_some() && crit_temp_val.is_some() {
-                let max_temp_val = max_temp_val.unwrap();
-                let crit_temp_val = crit_temp_val.unwrap();
+                let (mut max_temp_val, crit_temp_val) = (
+                    cmp::min(max_temp_val.unwrap(), crit_temp_val.unwrap()),
+                    cmp::max(max_temp_val.unwrap(), crit_temp_val.unwrap()),
+                );
+                let abs_diff = crit_temp_val - max_temp_val;
                 let delta = match sensor_type {
-                    SensorType::CPU => {
-                        (cmp::max(max_temp_val, crit_temp_val)
-                            - cmp::min(max_temp_val, crit_temp_val))
-                            / 2
-                    }
+                    SensorType::CPU => abs_diff / 2,
                     SensorType::OTHER => 5,
                     _ => panic!(),
                 };
+                if (sensor_type == SensorType::OTHER) && (abs_diff > 20) {
+                    max_temp_val = crit_temp_val - 20;
+                }
                 warning_temp = max_temp_val - delta;
                 crit_temp = max_temp_val;
             } else if max_temp_val.is_some() {
