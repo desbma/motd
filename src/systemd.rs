@@ -26,10 +26,12 @@ pub fn get_failed_units(mode: &SystemdMode) -> FailedUnits {
         .args(&args)
         .stderr(Stdio::null())
         .output();
-    if output.is_err() {
-        return units;
-    }
-    let output = output.unwrap();
+    let output = match output {
+        Ok(o) => o,
+        Err(_) => {
+            return units;
+        }
+    };
     if !output.status.success() {
         return units;
     }
