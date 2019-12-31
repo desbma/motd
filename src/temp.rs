@@ -1,8 +1,6 @@
 use std::cmp;
-use std::collections::HashSet;
-use std::collections::VecDeque;
-use std::fs;
-use std::fs::File;
+use std::collections::{HashSet, VecDeque};
+use std::fs::{self, File};
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::path::Path;
