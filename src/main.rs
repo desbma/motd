@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::io;
 use std::io::prelude::*;
 use std::iter::Iterator;
@@ -51,7 +50,7 @@ fn output_title(title: &str, columns: usize, new_line: bool) {
 }
 
 /// Output lines to stdout
-fn output_lines(lines: VecDeque<String>) {
+fn output_lines(lines: Vec<String>) {
     for line in lines {
         println!("{}", line);
     }
@@ -60,8 +59,8 @@ fn output_lines(lines: VecDeque<String>) {
 /// Output section title and lines
 fn output_section(
     title: &str,
-    lines: Option<Result<VecDeque<String>, String>>,
-    lines_rx: Option<&mpsc::Receiver<Result<VecDeque<String>, String>>>,
+    lines: Option<Result<Vec<String>, String>>,
+    lines_rx: Option<&mpsc::Receiver<Result<Vec<String>, String>>>,
     show_title: bool,
     first_section: bool,
     columns: usize,
@@ -232,7 +231,7 @@ fn main() {
     let cl_args = parse_cl_args();
 
     // Fetch systemd failed units in a background thread if needed
-    let mut unit_lines_rx: Option<mpsc::Receiver<Result<VecDeque<String>, String>>> = None;
+    let mut unit_lines_rx: Option<mpsc::Receiver<Result<Vec<String>, String>>> = None;
     if cl_args.sections.contains(&Section::SDFailedUnits)
         && (*cl_args.sections.first().unwrap() != Section::SDFailedUnits)
     {
@@ -259,7 +258,7 @@ fn main() {
     }
 
     // Fetch temps in a background thread if needed
-    let mut temp_lines_rx: Option<mpsc::Receiver<Result<VecDeque<String>, String>>> = None;
+    let mut temp_lines_rx: Option<mpsc::Receiver<Result<Vec<String>, String>>> = None;
     if cl_args.sections.contains(&Section::Temps)
         && (*cl_args.sections.first().unwrap() != Section::Temps)
     {

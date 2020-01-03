@@ -1,5 +1,5 @@
 use std::cmp;
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 use std::error;
 use std::fs::{self, File};
 use std::io::prelude::*;
@@ -37,7 +37,7 @@ pub struct SensorTemp {
 }
 
 /// Deque of fetched temperature data
-pub type TempDeque = VecDeque<SensorTemp>;
+pub type TempDeque = Vec<SensorTemp>;
 
 /// Read temperature from a given hwmon sysfs file
 fn read_sysfs_temp_value(filepath: String) -> Result<Option<u32>, Box<dyn error::Error>> {
@@ -59,7 +59,7 @@ fn read_sysfs_temp_value(filepath: String) -> Result<Option<u32>, Box<dyn error:
 
 /// Probe temperatures from hwmon Linux sensors exposed in /sys/class/hwmon/
 pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
-    let mut temps = VecDeque::new();
+    let mut temps = Vec::new();
 
     // Totally incomplete and arbitary list of sensor names to blacklist
     // = those that return invalid values on motherboards I own
@@ -171,7 +171,7 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
                 temp_warning: warning_temp,
                 temp_critical: crit_temp,
             };
-            temps.push_back(sensor_temp);
+            temps.push(sensor_temp);
         }
     }
 
@@ -202,7 +202,7 @@ fn normalize_drive_path(path: &str) -> Result<String, Box<dyn error::Error>> {
 
 /// Probe drive temperatures from hddtemp daemon
 pub fn get_drive_temps() -> Result<TempDeque, Box<dyn error::Error>> {
-    let mut temps = VecDeque::new();
+    let mut temps = Vec::new();
 
     // Connect
     let mut stream = match TcpStream::connect("127.0.0.1:7634") {
@@ -233,7 +233,7 @@ pub fn get_drive_temps() -> Result<TempDeque, Box<dyn error::Error>> {
             temp_warning: 45,
             temp_critical: 55,
         };
-        temps.push_back(sensor_temp);
+        temps.push(sensor_temp);
     }
 
     Ok(temps)
@@ -251,8 +251,8 @@ fn colorize_from_temp(string: String, temp: u32, temp_warning: u32, temp_critica
 }
 
 /// Output all temperatures
-pub fn output_temps(temps: TempDeque) -> VecDeque<String> {
-    let mut lines: VecDeque<String> = VecDeque::new();
+pub fn output_temps(temps: TempDeque) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
 
     let max_name_len = temps
         .iter()
@@ -263,7 +263,7 @@ pub fn output_temps(temps: TempDeque) -> VecDeque<String> {
     for sensor_temp in temps {
         let pad = " ".repeat(max_name_len - sensor_temp.name.len());
         let line = format!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
-        lines.push_back(colorize_from_temp(
+        lines.push(colorize_from_temp(
             line,
             sensor_temp.temp,
             sensor_temp.temp_warning,

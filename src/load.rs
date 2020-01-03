@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::error;
 use std::fs::File;
 use std::io::prelude::*;
@@ -73,21 +72,21 @@ fn colorize_load(load: f32, cpu_count: usize) -> String {
 }
 
 /// Output load information
-pub fn output_load_info(load_info: LoadInfo, default_cpu_count: usize) -> VecDeque<String> {
-    let mut lines: VecDeque<String> = VecDeque::new();
+pub fn output_load_info(load_info: LoadInfo, default_cpu_count: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
 
     let cpu_count = if default_cpu_count == 0 {
         num_cpus::get()
     } else {
         default_cpu_count
     };
-    lines.push_back(format!(
+    lines.push(format!(
         "Load avg 1min: {}, 5 min: {}, 15 min: {}",
         colorize_load(load_info.load_avg_1m, cpu_count),
         colorize_load(load_info.load_avg_5m, cpu_count),
         colorize_load(load_info.load_avg_15m, cpu_count)
     ));
-    lines.push_back(format!("Tasks: {}", load_info.task_count));
+    lines.push(format!("Tasks: {}", load_info.task_count));
 
     lines
 }

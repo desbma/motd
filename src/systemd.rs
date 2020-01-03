@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::error;
 use std::io::BufRead;
 use std::process::{Command, Stdio};
@@ -7,7 +6,7 @@ use ansi_term::Colour::*;
 use simple_error::SimpleError;
 
 /// Names of failed Systemd units
-type FailedUnits = VecDeque<String>;
+type FailedUnits = Vec<String>;
 
 /// Systemd running mode
 pub enum SystemdMode {
@@ -32,7 +31,7 @@ pub fn get_failed_units(mode: &SystemdMode) -> Result<FailedUnits, Box<dyn error
         return Err(Box::new(SimpleError::new("systemctl failed")));
     }
     for line in output.stdout.lines() {
-        units.push_back(
+        units.push(
             line?
                 .split(' ')
                 .next()
@@ -45,7 +44,7 @@ pub fn get_failed_units(mode: &SystemdMode) -> Result<FailedUnits, Box<dyn error
 }
 
 /// Output names of Systemd units in failed state
-pub fn output_failed_units(units: FailedUnits) -> VecDeque<String> {
+pub fn output_failed_units(units: FailedUnits) -> Vec<String> {
     units.iter().map(|u| Red.paint(u).to_string()).collect()
 }
 

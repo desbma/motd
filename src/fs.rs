@@ -1,5 +1,4 @@
 use std::cmp;
-use std::collections::VecDeque;
 use std::error;
 use std::ffi::{CStr, CString};
 use std::io;
@@ -139,8 +138,8 @@ pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
 }
 
 /// Output filesystem information
-pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) -> VecDeque<String> {
-    let mut lines: VecDeque<String> = VecDeque::new();
+pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
 
     let max_path_len = fs_info
         .iter()
@@ -160,7 +159,7 @@ pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) -> VecDeque<String>
             text_style = Style::new();
         }
 
-        lines.push_back(format!(
+        lines.push(format!(
             "{}{} {}",
             text_style.paint(&cur_fs_info.mount_path),
             text_style.paint(" ".repeat(max_path_len - cur_fs_info.mount_path.len())),
