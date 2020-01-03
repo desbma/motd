@@ -275,7 +275,7 @@ mod tests {
         // Check rounding
         assert_eq!(
             output_bar(
-                &vec![
+                &[
                     BarPart{
                         label: vec![
                             "part1".to_string(),
@@ -316,7 +316,7 @@ mod tests {
         );
         assert_eq!(
             output_bar(
-                &vec![
+                &[
                     BarPart{
                         label: vec![
                             "part1".to_string(),
@@ -357,7 +357,7 @@ mod tests {
         );
         assert_eq!(
             output_bar(
-                &vec![
+                &[
                     BarPart{
                         label: vec![
                             "part1".to_string(),
@@ -399,7 +399,7 @@ mod tests {
 
         assert_eq!(
             output_bar(
-                &vec![
+                &[
                     BarPart {
                         label: vec![
                             "part1".to_string(),
@@ -440,7 +440,7 @@ mod tests {
         );
         assert_eq!(
             output_bar(
-                &vec![
+                &[
                     BarPart {
                         label: vec![
                             "part1".to_string(),
@@ -481,7 +481,7 @@ mod tests {
         );
         assert_eq!(
             output_bar(
-                &vec![
+                &[
                     BarPart {
                         label: vec![
                             "part1".to_string(),
@@ -522,7 +522,7 @@ mod tests {
         );
         assert_eq!(
             output_bar(
-                &vec![
+                &[
                     BarPart {
                         label: vec![
                             "part1".to_string(),
@@ -563,7 +563,7 @@ mod tests {
         );
         assert_eq!(
             output_bar(
-                &vec![
+                &[
                     BarPart {
                         label: vec![
                             "part1".to_string(),
@@ -604,7 +604,7 @@ mod tests {
         );
         assert_eq!(
             output_bar(
-                &vec![
+                &[
                     BarPart{
                         label: vec![
                             "part1".to_string(),
