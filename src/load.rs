@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::str::FromStr;
@@ -18,7 +19,7 @@ pub struct LoadInfo {
 }
 
 /// Fetch load information from /proc/loadavg
-pub fn get_load_info() -> LoadInfo {
+pub fn get_load_info() -> Result<LoadInfo, Box<dyn error::Error>> {
     let mut load_info = LoadInfo {
         load_avg_1m: 0.0,
         load_avg_5m: 0.0,
@@ -38,7 +39,7 @@ pub fn get_load_info() -> LoadInfo {
     load_info.task_count =
         u32::from_str(tokens_it.next().unwrap().split('/').nth(1).unwrap()).unwrap();
 
-    load_info
+    Ok(load_info)
 }
 
 /// Colorize load string

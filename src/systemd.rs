@@ -1,8 +1,10 @@
 use std::collections::VecDeque;
+use std::error;
 use std::io::BufRead;
 use std::process::{Command, Stdio};
 
 use ansi_term::Colour::*;
+use simple_error::SimpleError;
 
 /// Names of failed Systemd units
 type FailedUnits = VecDeque<String>;
@@ -14,7 +16,7 @@ pub enum SystemdMode {
 }
 
 /// Get name of Systemd units in failed state
-pub fn get_failed_units(mode: &SystemdMode) -> FailedUnits {
+pub fn get_failed_units(mode: &SystemdMode) -> Result<FailedUnits, Box<dyn error::Error>> {
     let mut units: FailedUnits = FailedUnits::new();
 
     let mut args = match mode {
@@ -25,36 +27,26 @@ pub fn get_failed_units(mode: &SystemdMode) -> FailedUnits {
     let output = Command::new("systemctl")
         .args(&args)
         .stderr(Stdio::null())
-        .output();
-    let output = match output {
-        Ok(o) => o,
-        Err(_) => {
-            return units;
-        }
-    };
+        .output()?;
     if !output.status.success() {
-        return units;
+        return Err(Box::new(SimpleError::new("systemctl failed")));
     }
-    for unit in output
-        .stdout
-        .lines()
-        .map(|l| l.unwrap().split(' ').next().unwrap().to_string())
-    {
-        units.push_back(unit);
+    for line in output.stdout.lines() {
+        units.push_back(
+            line?
+                .split(' ')
+                .next()
+                .ok_or_else(|| SimpleError::new("Failed to parse systemctl output"))?
+                .to_string(),
+        );
     }
 
-    units
+    Ok(units)
 }
 
 /// Output names of Systemd units in failed state
 pub fn output_failed_units(units: FailedUnits) -> VecDeque<String> {
-    let mut lines: VecDeque<String> = VecDeque::new();
-
-    for unit in units {
-        lines.push_back(Red.paint(unit).to_string());
-    }
-
-    lines
+    units.iter().map(|u| Red.paint(u).to_string()).collect()
 }
 
 #[cfg(test)]

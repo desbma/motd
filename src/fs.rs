@@ -1,5 +1,6 @@
 use std::cmp;
 use std::collections::VecDeque;
+use std::error;
 use std::ffi::{CStr, CString};
 use std::io;
 use std::mem;
@@ -20,7 +21,7 @@ pub struct FsInfo {
 pub type FsInfoVec = Vec<FsInfo>;
 
 /// Fetch filesystem information for all filesystems
-pub fn get_fs_info() -> FsInfoVec {
+pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
     let mut fs_info = FsInfoVec::new();
 
     // Open mount list file
@@ -85,7 +86,7 @@ pub fn get_fs_info() -> FsInfoVec {
 
     fs_info.sort_by(|a, b| a.mount_path.cmp(&b.mount_path));
 
-    fs_info
+    Ok(fs_info)
 }
 
 /// Fetch detailed filesystem information

@@ -59,8 +59,8 @@ fn output_lines(lines: VecDeque<String>) {
 /// Output section title and lines
 fn output_section(
     title: &str,
-    lines: Option<VecDeque<String>>,
-    lines_rx: Option<&mpsc::Receiver<VecDeque<String>>>,
+    lines: Option<Result<VecDeque<String>, String>>,
+    lines_rx: Option<&mpsc::Receiver<Result<VecDeque<String>, String>>>,
     show_title: bool,
     first_section: bool,
     columns: usize,
@@ -80,14 +80,21 @@ fn output_section(
         io::stdout().flush().unwrap();
     }
 
-    if !lines.is_empty() {
-        if show_title {
-            output_title(title, columns, !first_section);
-        } else if !first_section {
-            println!();
-        }
+    match lines {
+        Ok(lines) => {
+            if !lines.is_empty() {
+                if show_title {
+                    output_title(title, columns, !first_section);
+                } else if !first_section {
+                    println!();
+                }
 
-        output_lines(lines);
+                output_lines(lines);
+            }
+        }
+        Err(err) => {
+            eprintln!("Failed to get data for {} section: {}", title, err);
+        }
     }
 }
 
@@ -218,7 +225,7 @@ fn main() {
     let cl_args = parse_cl_args();
 
     // Fetch systemd failed units in a background thread if needed
-    let mut unit_lines_rx: Option<mpsc::Receiver<VecDeque<String>>> = None;
+    let mut unit_lines_rx: Option<mpsc::Receiver<Result<VecDeque<String>, String>>> = None;
     if cl_args.sections.contains(&Section::SDFailedUnits)
         && (*cl_args.sections.first().unwrap() != Section::SDFailedUnits)
     {
@@ -232,7 +239,10 @@ fn main() {
                     let failed_units = systemd::get_failed_units(systemd_mode);
 
                     // Format them to lines
-                    let lines = systemd::output_failed_units(failed_units);
+                    let lines = failed_units
+                        .map(systemd::output_failed_units)
+                        // Also format error to String to pass it in channel
+                        .map_err(|e| e.to_string());
 
                     // Send them to main thread
                     chan_tx.send(lines).unwrap();
@@ -242,7 +252,7 @@ fn main() {
     }
 
     // Fetch temps in a background thread if needed
-    let mut temp_lines_rx: Option<mpsc::Receiver<VecDeque<String>>> = None;
+    let mut temp_lines_rx: Option<mpsc::Receiver<Result<VecDeque<String>, String>>> = None;
     if cl_args.sections.contains(&Section::Temps)
         && (*cl_args.sections.first().unwrap() != Section::Temps)
     {
@@ -252,12 +262,22 @@ fn main() {
             .name("temp_worker".to_string())
             .spawn(move || {
                 // Get temps
-                let mut temps = temp::TempDeque::new();
-                temp::get_hwmon_temps(&mut temps);
-                temp::get_drive_temps(&mut temps);
+                let temps = match temp::get_hwmon_temps() {
+                    Ok(mut hwmon_temps) => match temp::get_drive_temps() {
+                        Ok(drive_temps) => {
+                            hwmon_temps.extend(drive_temps);
+                            Ok(hwmon_temps)
+                        }
+                        Err(err) => Err(err),
+                    },
+                    Err(err) => Err(err),
+                };
 
                 // Format them to lines
-                let lines = temp::output_temps(temps);
+                let lines = temps
+                    .map(temp::output_temps)
+                    // Also format error to String to pass it in channel
+                    .map_err(|e| e.to_string());
 
                 // Send them to main thread
                 chan_tx.send(lines).unwrap();
@@ -265,16 +285,16 @@ fn main() {
             .unwrap();
     }
 
-    let mut mem_info: Option<mem::MemInfo> = None;
+    let mut mem_info: Option<Result<mem::MemInfo, String>> = None;
 
-    let first_section = *cl_args.sections.first().unwrap();
+    let first_section = cl_args.sections.first().unwrap();
 
-    for section in cl_args.sections {
+    for section in &cl_args.sections {
         match section {
             Section::Load => {
                 // Load info
-                let load_info = load::get_load_info();
-                let lines = load::output_load_info(load_info, 0);
+                let load_info = load::get_load_info().map_err(|e| e.to_string());
+                let lines = load_info.map(|l| load::output_load_info(l, 0));
                 output_section(
                     "Load",
                     Some(lines),
@@ -287,10 +307,10 @@ fn main() {
 
             Section::Mem => {
                 // Memory usage
-                if (&mem_info).is_none() {
-                    mem_info = Some(mem::get_mem_info());
-                }
-                let lines = mem::output_mem(&(mem_info.as_ref()).unwrap(), cl_args.term_columns);
+                let lines = mem_info
+                    .get_or_insert_with(|| mem::get_mem_info().map_err(|e| e.to_string()))
+                    .clone()
+                    .map(|m: mem::MemInfo| mem::output_mem(&m, cl_args.term_columns));
                 output_section(
                     "Memory usage",
                     Some(lines),
@@ -303,10 +323,10 @@ fn main() {
 
             Section::Swap => {
                 // Swap usage
-                if (&mem_info).is_none() {
-                    mem_info = Some(mem::get_mem_info());
-                }
-                let lines = mem::output_swap(&(mem_info.as_ref()).unwrap(), cl_args.term_columns);
+                let lines = mem_info
+                    .get_or_insert_with(|| mem::get_mem_info().map_err(|e| e.to_string()))
+                    .clone()
+                    .map(|m: mem::MemInfo| mem::output_swap(&m, cl_args.term_columns));
                 output_section(
                     "Swap",
                     Some(lines),
@@ -319,8 +339,8 @@ fn main() {
 
             Section::FS => {
                 // Filesystem info
-                let fs_info = fs::get_fs_info();
-                let lines = fs::output_fs_info(fs_info, cl_args.term_columns);
+                let fs_info = fs::get_fs_info().map_err(|e| e.to_string());
+                let lines = fs_info.map(|f| fs::output_fs_info(f, cl_args.term_columns));
                 output_section(
                     "Filesystem usage",
                     Some(lines),
@@ -333,16 +353,25 @@ fn main() {
 
             Section::Temps => {
                 // Temps
-                let lines = if temp_lines_rx.is_none() {
-                    // Get temps
-                    let mut temps = temp::TempDeque::new();
-                    temp::get_hwmon_temps(&mut temps);
-                    temp::get_drive_temps(&mut temps);
+                let lines = match temp_lines_rx {
+                    None => {
+                        // Get temps
+                        let mut temps = temp::get_hwmon_temps().map_err(|e| e.to_string());
+                        if let Ok(ref mut hwmon_temps) = temps {
+                            match temp::get_drive_temps() {
+                                Ok(drive_temps) => {
+                                    hwmon_temps.extend(drive_temps);
+                                }
+                                Err(err) => {
+                                    temps = Err(err.to_string());
+                                }
+                            }
+                        }
 
-                    // Format them to lines
-                    Some(temp::output_temps(temps))
-                } else {
-                    None
+                        // Format them to lines
+                        Some(temps.map(temp::output_temps))
+                    }
+                    Some(_) => None,
                 };
                 output_section(
                     "Hardware temperatures",
@@ -358,10 +387,15 @@ fn main() {
                 // Systemd failed units
                 for systemd_mode in &[systemd::SystemdMode::System, systemd::SystemdMode::User] {
                     let lines = match unit_lines_rx {
+                        None => {
+                            // Get systemd failed units
+                            let failed_units =
+                                systemd::get_failed_units(systemd_mode).map_err(|e| e.to_string());
+
+                            // Format them to lines
+                            Some(failed_units.map(systemd::output_failed_units))
+                        }
                         Some(_) => None,
-                        None => Some(systemd::output_failed_units(systemd::get_failed_units(
-                            systemd_mode,
-                        ))),
                     };
                     output_section(
                         &format!(

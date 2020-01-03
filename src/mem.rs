@@ -1,4 +1,5 @@
 use std::collections::{HashMap, VecDeque};
+use std::error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::str::FromStr;
@@ -10,7 +11,7 @@ use bytesize::ByteSize;
 pub type MemInfo = HashMap<String, u64>;
 
 /// Fetch memory usage info from procfs
-pub fn get_mem_info() -> MemInfo {
+pub fn get_mem_info() -> Result<MemInfo, Box<dyn error::Error>> {
     let mut mem_info = MemInfo::new();
     let file = File::open("/proc/meminfo").unwrap();
     let reader = BufReader::new(file);
@@ -26,7 +27,7 @@ pub fn get_mem_info() -> MemInfo {
         mem_info.insert(key, val);
     }
 
-    mem_info
+    Ok(mem_info)
 }
 
 /// Memory bar section

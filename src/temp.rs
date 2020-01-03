@@ -1,5 +1,6 @@
 use std::cmp;
 use std::collections::{HashSet, VecDeque};
+use std::error;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::net::TcpStream;
@@ -58,7 +59,9 @@ fn read_sysfs_temp_value(filepath: String) -> Option<u32> {
 }
 
 /// Probe temperatures from hwmon Linux sensors exposed in /sys/class/hwmon/
-pub fn get_hwmon_temps(temps: &mut TempDeque) {
+pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
+    let mut temps = VecDeque::new();
+
     // Totally incomplete and arbitary list of sensor names to blacklist
     // = those that return invalid values on motherboards I own
     let mut label_blacklist: HashSet<String> = HashSet::new();
@@ -166,6 +169,8 @@ pub fn get_hwmon_temps(temps: &mut TempDeque) {
             temps.push_back(sensor_temp);
         }
     }
+
+    Ok(temps)
 }
 
 /// Normalize a drive device path by making it absolute and following links
@@ -186,12 +191,14 @@ fn normalize_drive_path(path: &str) -> String {
 }
 
 /// Probe drive temperatures from hddtemp daemon
-pub fn get_drive_temps(temps: &mut TempDeque) {
+pub fn get_drive_temps() -> Result<TempDeque, Box<dyn error::Error>> {
+    let mut temps = VecDeque::new();
+
     // Connect
     let mut stream = match TcpStream::connect("127.0.0.1:7634") {
         // TODO port const
         Ok(s) => s,
-        Err(_e) => return,
+        Err(_e) => return Ok(temps),
     };
 
     // Read
@@ -218,6 +225,8 @@ pub fn get_drive_temps(temps: &mut TempDeque) {
         };
         temps.push_back(sensor_temp);
     }
+
+    Ok(temps)
 }
 
 /// Colorize a string for terminal display according to temperature level
