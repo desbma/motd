@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn test_output_temps() {
         assert_eq!(
-            output_temps(TempDeque::from(vec![
+            output_temps(vec![
                 SensorTemp {
                     name: "sensor1".to_string(),
                     sensor_type: SensorType::CPU,
@@ -303,7 +303,7 @@ mod tests {
                     temp_warning: 45,
                     temp_critical: 60
                 }
-            ])),
+            ]),
             [
                 "\u{1b}[31msensor1:         95 °C\u{1b}[0m",
                 "sensor222222222: 40 °C",

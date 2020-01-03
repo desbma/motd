@@ -55,10 +55,7 @@ mod tests {
     #[test]
     fn test_output_failed_units() {
         assert_eq!(
-            output_failed_units(FailedUnits::from(vec![
-                "foo.service".to_string(),
-                "bar.timer".to_string()
-            ])),
+            output_failed_units(vec!["foo.service".to_string(), "bar.timer".to_string()]),
             [
                 "\u{1b}[31mfoo.service\u{1b}[0m",
                 "\u{1b}[31mbar.timer\u{1b}[0m"
