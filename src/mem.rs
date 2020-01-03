@@ -6,6 +6,7 @@ use std::str::FromStr;
 
 use ansi_term::Style;
 use bytesize::ByteSize;
+use simple_error::SimpleError;
 
 /// Map of memory usage info, unit is kB or page count
 pub type MemInfo = HashMap<String, u64>;
@@ -13,15 +14,26 @@ pub type MemInfo = HashMap<String, u64>;
 /// Fetch memory usage info from procfs
 pub fn get_mem_info() -> Result<MemInfo, Box<dyn error::Error>> {
     let mut mem_info = MemInfo::new();
-    let file = File::open("/proc/meminfo").unwrap();
+    let file = File::open("/proc/meminfo")?;
     let reader = BufReader::new(file);
     for line in reader.lines() {
         // Parse line
-        let line_str = line.unwrap();
+        let line_str = line?;
         let mut tokens_it = line_str.split(':');
-        let key = tokens_it.next().unwrap().to_string();
-        let val_str = tokens_it.next().unwrap().trim_start();
-        let val = u64::from_str(val_str.split(' ').next().unwrap()).unwrap();
+        let key = tokens_it
+            .next()
+            .ok_or_else(|| SimpleError::new("Failed to parse memory info"))?
+            .to_string();
+        let val_str = tokens_it
+            .next()
+            .ok_or_else(|| SimpleError::new("Failed to parse memory value"))?
+            .trim_start();
+        let val = u64::from_str(
+            val_str
+                .split(' ')
+                .next()
+                .ok_or_else(|| SimpleError::new("Failed to parse memory value"))?,
+        )?;
 
         // Store info
         mem_info.insert(key, val);

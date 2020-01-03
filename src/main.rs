@@ -6,6 +6,7 @@ use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
 
+use ansi_term::Colour::*;
 use clap::{App, Arg};
 use itertools::Itertools;
 
@@ -93,7 +94,13 @@ fn output_section(
             }
         }
         Err(err) => {
-            eprintln!("Failed to get data for {} section: {}", title, err);
+            eprintln!(
+                "{}",
+                Red.paint(format!(
+                    "Failed to get data for '{}' section: {}",
+                    title, err
+                ))
+            );
         }
     }
 }

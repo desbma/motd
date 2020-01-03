@@ -9,6 +9,7 @@ use ansi_term::Colour::*;
 use ansi_term::Style;
 use bytesize::ByteSize;
 use libc::{endmntent, getmntent, setmntent, statvfs};
+use simple_error::SimpleError;
 
 /// Information on a filesystem
 pub struct FsInfo {
@@ -26,11 +27,11 @@ pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
 
     // Open mount list file
     // Note: /etc/mtab is a symlink to /proc/self/mounts
-    let path = CString::new("/proc/mounts").unwrap();
-    let mode = CString::new("r").unwrap();
+    let path = CString::new("/proc/mounts")?;
+    let mode = CString::new("r")?;
     let mount_file = unsafe { setmntent(path.as_ptr(), mode.as_ptr()) };
     if mount_file.is_null() {
-        panic!();
+        return Err(Box::new(SimpleError::new("setmntent failed")));
     }
 
     // Loop over mounts
@@ -42,14 +43,8 @@ pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
         let mount_path;
         let fs_type;
         unsafe {
-            mount_path = CStr::from_ptr((*mount).mnt_dir)
-                .to_str()
-                .unwrap()
-                .to_string();
-            fs_type = CStr::from_ptr((*mount).mnt_type)
-                .to_str()
-                .unwrap()
-                .to_string();
+            mount_path = CStr::from_ptr((*mount).mnt_dir).to_str()?.to_string();
+            fs_type = CStr::from_ptr((*mount).mnt_type).to_str()?.to_string();
         }
 
         // Exclude some cases
@@ -72,7 +67,7 @@ pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
         };
         new_fs_info = match fill_fs_info(new_fs_info) {
             Ok(fsi) => fsi,
-            Err(_e) => continue,
+            Err(_) => continue,
         };
         if new_fs_info.total_bytes == 0 {
             // procfs, sysfs...
@@ -92,10 +87,9 @@ pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
 /// Fetch detailed filesystem information
 fn fill_fs_info(fs_info: FsInfo) -> Result<FsInfo, io::Error> {
     let mut fs_stat: statvfs = unsafe { mem::zeroed() };
-    let mount_point = CString::new(fs_info.mount_path.to_owned()).unwrap();
+    let mount_point = CString::new(fs_info.mount_path.to_owned())?;
     let rc = unsafe { statvfs(mount_point.as_ptr(), &mut fs_stat) };
     if rc != 0 {
-        //println!("{} {:?}", fs_info.mount_path, io::Error::last_os_error());
         return Err(io::Error::last_os_error());
     }
 

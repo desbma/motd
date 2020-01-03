@@ -9,6 +9,7 @@ use std::str::FromStr;
 
 use ansi_term::Colour::*;
 use glob::glob;
+use simple_error::SimpleError;
 
 /// Type of temperature sensor
 enum SensorType {
@@ -39,23 +40,21 @@ pub struct SensorTemp {
 pub type TempDeque = VecDeque<SensorTemp>;
 
 /// Read temperature from a given hwmon sysfs file
-fn read_sysfs_temp_value(filepath: String) -> Option<u32> {
+fn read_sysfs_temp_value(filepath: String) -> Result<Option<u32>, Box<dyn error::Error>> {
     let mut input_file = match File::open(filepath) {
         Ok(f) => f,
-        Err(_e) => return None,
+        Err(_) => return Ok(None),
     };
     let mut temp_str = String::new();
-    input_file.read_to_string(&mut temp_str).unwrap();
-    let temp_val = match temp_str.trim_end().parse::<u32>() {
-        Ok(v) => v / 1000,
-        Err(_e) => return None,
-    };
+    input_file.read_to_string(&mut temp_str)?;
+    let temp_val = temp_str.trim_end().parse::<u32>().map(|v| v / 1000)?;
+
     if temp_val == 0 {
         // Exclude negative values
-        return None;
+        return Ok(None);
     }
 
-    Some(temp_val)
+    Ok(Some(temp_val))
 }
 
 /// Probe temperatures from hwmon Linux sensors exposed in /sys/class/hwmon/
@@ -68,15 +67,21 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
     label_blacklist.insert("SYSTIN".to_string());
     label_blacklist.insert("CPUTIN".to_string());
 
-    for hwmon_entry in glob("/sys/class/hwmon/hwmon*").unwrap() {
-        let hwmon_dir = hwmon_entry.unwrap().into_os_string().into_string().unwrap();
+    for hwmon_entry in glob("/sys/class/hwmon/hwmon*")? {
+        let hwmon_dir = hwmon_entry?
+            .into_os_string()
+            .into_string()
+            .or_else(|_| Err(SimpleError::new("Failed to convert OS string")))?;
         let label_pattern = format!("{}/temp*_label", hwmon_dir);
         for label_entry in glob(&label_pattern).unwrap() {
             // Read sensor name
-            let input_label_filepath = label_entry.unwrap().into_os_string().into_string().unwrap();
+            let input_label_filepath = label_entry?
+                .into_os_string()
+                .into_string()
+                .or_else(|_| Err(SimpleError::new("Failed to convert OS string")))?;
             let mut label = String::new();
-            let mut input_label_file = File::open(&input_label_filepath).unwrap();
-            input_label_file.read_to_string(&mut label).unwrap();
+            let mut input_label_file = File::open(&input_label_filepath)?;
+            input_label_file.read_to_string(&mut label)?;
             label = label.trim_end().to_string();
             if label_blacklist.contains(&label) {
                 // Label in blacklist, exclude
@@ -95,7 +100,7 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
                 "{}_input",
                 input_label_filepath[..input_label_filepath.len() - 6].to_owned()
             );
-            let temp_val = match read_sysfs_temp_value(input_temp_filepath) {
+            let temp_val = match read_sysfs_temp_value(input_temp_filepath)? {
                 Some(v) => v,
                 None => continue,
             };
@@ -105,14 +110,14 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
                 "{}_max",
                 input_label_filepath[..input_label_filepath.len() - 6].to_owned()
             );
-            let max_temp_val = read_sysfs_temp_value(max_temp_filepath);
+            let max_temp_val = read_sysfs_temp_value(max_temp_filepath)?;
 
             // Read critical temp
             let crit_temp_filepath = format!(
                 "{}_crit",
                 input_label_filepath[..input_label_filepath.len() - 6].to_owned()
             );
-            let crit_temp_val = read_sysfs_temp_value(crit_temp_filepath);
+            let crit_temp_val = read_sysfs_temp_value(crit_temp_filepath)?;
 
             // Compute warning & critical temps
             let warning_temp;
@@ -174,20 +179,25 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
 }
 
 /// Normalize a drive device path by making it absolute and following links
-fn normalize_drive_path(path: &str) -> String {
+fn normalize_drive_path(path: &str) -> Result<String, Box<dyn error::Error>> {
     let mut path_string = path.to_string();
     let fs_path = Path::new(path);
 
-    if fs::symlink_metadata(path).unwrap().file_type().is_symlink() {
-        let mut real_path = fs::read_link(path).unwrap();
+    if fs::symlink_metadata(path)?.file_type().is_symlink() {
+        let mut real_path = fs::read_link(path)?;
         if !real_path.is_absolute() {
-            let dirname = fs_path.parent().unwrap();
-            real_path = dirname.join(real_path).canonicalize().unwrap();
+            let dirname = fs_path
+                .parent()
+                .ok_or_else(|| SimpleError::new("Unable to get drive parent directory"))?;
+            real_path = dirname.join(real_path).canonicalize()?;
         }
-        path_string = real_path.into_os_string().into_string().unwrap();
+        path_string = real_path
+            .into_os_string()
+            .into_string()
+            .or_else(|_| Err(SimpleError::new("Failed to convert OS string")))?;
     }
 
-    path_string
+    Ok(path_string)
 }
 
 /// Probe drive temperatures from hddtemp daemon
@@ -198,21 +208,21 @@ pub fn get_drive_temps() -> Result<TempDeque, Box<dyn error::Error>> {
     let mut stream = match TcpStream::connect("127.0.0.1:7634") {
         // TODO port const
         Ok(s) => s,
-        Err(_e) => return Ok(temps),
+        Err(_) => return Ok(temps),
     };
 
     // Read
     let mut data = String::new();
-    stream.read_to_string(&mut data).unwrap();
+    stream.read_to_string(&mut data)?;
 
     // Parse
     let drives_data: Vec<&str> = data.split('|').collect();
     for drive_data in drives_data.chunks_exact(5) {
-        let drive_path = normalize_drive_path(drive_data[1]);
+        let drive_path = normalize_drive_path(drive_data[1])?;
         let pretty_name = drive_data[2];
         let temp = match u32::from_str(drive_data[3]) {
             Ok(t) => t,
-            Err(_e) => continue,
+            Err(_) => continue,
         };
 
         // Store temp
