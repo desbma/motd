@@ -47,14 +47,14 @@ fn read_sysfs_temp_value(filepath: String) -> Result<Option<u32>, Box<dyn error:
     };
     let mut temp_str = String::new();
     input_file.read_to_string(&mut temp_str)?;
-    let temp_val = temp_str.trim_end().parse::<u32>().map(|v| v / 1000)?;
+    let temp_val = temp_str.trim_end().parse::<i32>().map(|v| v / 1000)?;
 
-    if temp_val == 0 {
+    if temp_val <= 0 {
         // Exclude negative values
         return Ok(None);
     }
 
-    Ok(Some(temp_val))
+    Ok(Some(temp_val as u32))
 }
 
 /// Probe temperatures from hwmon Linux sensors exposed in /sys/class/hwmon/
