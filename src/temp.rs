@@ -131,7 +131,7 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
                 let delta = match sensor_type {
                     SensorType::CPU => abs_diff / 2,
                     SensorType::OTHER => 5,
-                    _ => panic!(),
+                    _ => unreachable!(),
                 };
                 if let SensorType::OTHER = sensor_type {
                     if abs_diff > 20 {
@@ -144,7 +144,7 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
                 let delta = match sensor_type {
                     SensorType::CPU => 10,
                     SensorType::OTHER => 5,
-                    _ => panic!(),
+                    _ => unreachable!(),
                 };
                 warning_temp = max_temp_val - delta;
                 crit_temp = max_temp_val;
@@ -153,13 +153,13 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
                     // Fallback to default value
                     SensorType::CPU => 60,
                     SensorType::OTHER => 50,
-                    _ => panic!(),
+                    _ => unreachable!(),
                 };
                 crit_temp = match sensor_type {
                     // Fallback to default value
                     SensorType::CPU => 75,
                     SensorType::OTHER => 60,
-                    _ => panic!(),
+                    _ => unreachable!(),
                 };
             }
 

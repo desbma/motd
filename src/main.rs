@@ -125,7 +125,7 @@ fn letter_to_section(letter: &str) -> Section {
         "f" => Section::FS,
         "t" => Section::Temps,
         "u" => Section::SDFailedUnits,
-        _ => panic!(), // validated by clap
+        _ => unreachable!(), // validated by clap
     }
 }
 
