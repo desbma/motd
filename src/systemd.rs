@@ -22,7 +22,7 @@ pub fn get_failed_units(mode: &SystemdMode) -> Result<FailedUnits, Box<dyn error
         SystemdMode::System => vec![],
         SystemdMode::User => vec!["--user"],
     };
-    args.extend(&["--no-legend", "--failed"]);
+    args.extend(&["--no-legend", "--plain", "--failed"]);
     let output = Command::new("systemctl")
         .args(&args)
         .stderr(Stdio::null())
