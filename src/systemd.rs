@@ -33,6 +33,7 @@ pub fn get_failed_units(mode: &SystemdMode) -> Result<FailedUnits, Box<dyn error
     for line in output.stdout.lines() {
         units.push(
             line?
+                .trim_start()
                 .split(' ')
                 .next()
                 .ok_or_else(|| SimpleError::new("Failed to parse systemctl output"))?
