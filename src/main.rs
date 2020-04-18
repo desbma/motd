@@ -1,3 +1,4 @@
+use std::cmp;
 use std::io;
 use std::io::prelude::*;
 use std::iter::Iterator;
@@ -38,8 +39,8 @@ struct CLArgs {
     show_section_titles: bool,
 }
 
-/// Default terminal column count (width)
-const DEFAULT_TERM_COLUMNS: usize = 80;
+/// Fallback terminal column count (width), if it could not be detected
+const FALLBACK_TERM_COLUMNS: usize = 80;
 
 /// Output section header to stdout
 fn output_title(title: &str, columns: usize, new_line: bool) {
@@ -129,18 +130,18 @@ fn letter_to_section(letter: &str) -> Section {
     }
 }
 
-/// Validate a usize integer string for Clap usage
-fn validator_usize(s: String) -> Result<(), String> {
-    match usize::from_str(&s) {
+/// Validate a isize integer string for Clap usage
+fn validator_isize(s: String) -> Result<(), String> {
+    match isize::from_str(&s) {
         Ok(_) => Ok(()),
-        Err(_) => Err("Not a valid positive integer value".to_string()),
+        Err(_) => Err("Not a valid integer value".to_string()),
     }
 }
 
 /// Parse and validate command line arguments
 fn parse_cl_args() -> CLArgs {
     // Default values
-    let default_term_columns_string = DEFAULT_TERM_COLUMNS.to_string();
+    let default_term_columns_string = format!("-{}", FALLBACK_TERM_COLUMNS);
     let sections_string: Vec<String> = vec![
         Section::Load,
         Section::Mem,
@@ -191,9 +192,9 @@ fn parse_cl_args() -> CLArgs {
                 .long("columns")
                 .takes_value(true)
                 .allow_hyphen_values(true)
-                .validator(validator_usize)
+                .validator(validator_isize)
                 .default_value(&default_term_columns_string)
-                .help("Maximum terminal columns to use. Set to 0 to autotetect."),
+                .help("Maximum terminal columns to use. Set to 0 to autotetect. -X to use autodetected value or X, whichever is lower."),
         )
         .get_matches();
 
@@ -204,19 +205,32 @@ fn parse_cl_args() -> CLArgs {
         .map(|s| letter_to_section(s))
         .unique()
         .collect();
-    let term_columns = match usize::from_str(matches.value_of("COLUMNS").unwrap()).unwrap() {
-        // Autodetect
+    let term_columns: usize = match isize::from_str(matches.value_of("COLUMNS").unwrap()).unwrap() {
         0 => {
+            // Autodetect
             termsize::get()
                 // Detection failed, fallback to default
                 .unwrap_or(termsize::Size {
                     rows: 0,
-                    cols: DEFAULT_TERM_COLUMNS as u16,
+                    cols: FALLBACK_TERM_COLUMNS as u16,
                 })
                 .cols as usize
         }
+        v if v < 0 => {
+            // Autodetect with minimum
+            cmp::min(
+                -v as usize,
+                termsize::get()
+                    // Detection failed, fallback to default
+                    .unwrap_or(termsize::Size {
+                        rows: 0,
+                        cols: FALLBACK_TERM_COLUMNS as u16,
+                    })
+                    .cols as usize,
+            )
+        }
         // Passthrough
-        v => v,
+        v => v as usize,
     };
     let show_section_titles = !matches.is_present("NO_TITLES");
 
