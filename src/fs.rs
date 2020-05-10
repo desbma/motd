@@ -54,6 +54,7 @@ pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
             || (mount_path == "/run")
             || mount_path.starts_with("/run/")
             || mount_path.starts_with("/sys/")
+            || mount_path.starts_with("/var/lib/dhcpcd/run/")
         {
             continue;
         }
