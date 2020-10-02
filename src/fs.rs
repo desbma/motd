@@ -142,12 +142,7 @@ pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
 pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
 
-    let max_path_len = fs_info
-        .iter()
-        .max_by_key(|x| x.mount_path.len())
-        .unwrap()
-        .mount_path
-        .len();
+    let max_path_len = fs_info.iter().map(|x| x.mount_path.len()).max().unwrap();
 
     for cur_fs_info in fs_info {
         let text_style;

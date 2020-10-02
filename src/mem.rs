@@ -127,13 +127,18 @@ fn output_bar(parts: &[BarPart], length: usize) -> String {
 fn output_mem_stats(mem_info: &MemInfo, keys: Vec<&str>, total_key: &str) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
 
-    let max_key_len = keys.iter().max_by_key(|x| x.len()).unwrap().len();
+    let max_key_len = keys.iter().map(|x| x.len()).max().unwrap();
+    let mac_size_str_len = keys
+        .iter()
+        .map(|&x| ByteSize::kb(mem_info[x]).to_string().len())
+        .max()
+        .unwrap();
     for &key in keys.iter() {
         let size_str = ByteSize::kb(mem_info[key]).to_string();
         let mut line: String = format!(
             "{}: {}{}",
             key,
-            " ".repeat(max_key_len - key.len() + 8 - size_str.len()),
+            " ".repeat(max_key_len - key.len() + mac_size_str_len - size_str.len()),
             size_str
         );
         if key != total_key {
@@ -678,22 +683,22 @@ mod tests {
         assert_eq!(
             output_mem(&mem_stats, 80),
             [
-                "MemTotal:  12.3 MB",
-                "MemFree:    1.2 MB (10.0%)",
-                "Dirty:      2.1 MB (17.3%)",
-                "Cached:     3.1 MB (25.3%)",
-                "Buffers:    4.3 MB (35.0%)",
+                "MemTotal: 12.3 MB",
+                "MemFree:   1.2 MB (10.0%)",
+                "Dirty:     2.1 MB (17.3%)",
+                "Cached:    3.1 MB (25.3%)",
+                "Buffers:   4.3 MB (35.0%)",
                 "▕████\u{1b}[7mUsed 0.0GB (33.3%)\u{1b}[0m████\u{1b}[2m█████████████\u{1b}[0m\u{1b}[2;7mCached 0.0GB (58.3%)\u{1b}[0m\u{1b}[2m█████████████\u{1b}[0m Free ▏"
             ]
         );
         assert_eq!(
             output_mem(&mem_stats, 30),
             [
-                "MemTotal:  12.3 MB",
-                "MemFree:    1.2 MB (10.0%)",
-                "Dirty:      2.1 MB (17.3%)",
-                "Cached:     3.1 MB (25.3%)",
-                "Buffers:    4.3 MB (35.0%)",
+                "MemTotal: 12.3 MB",
+                "MemFree:   1.2 MB (10.0%)",
+                "Dirty:     2.1 MB (17.3%)",
+                "Cached:    3.1 MB (25.3%)",
+                "Buffers:   4.3 MB (35.0%)",
                 "▕██\u{1b}[7mUsed\u{1b}[0m███\u{1b}[2m██\u{1b}[0m\u{1b}[2;7mCached 0.0GB\u{1b}[0m\u{1b}[2m██\u{1b}[0m   ▏"
             ]
         );
@@ -708,16 +713,16 @@ mod tests {
         assert_eq!(
             output_swap(&mem_stats, 80),
             [
-                "SwapTotal:  12.3 GB",
-                "SwapFree:    2.3 GB (19.0%)",
+                "SwapTotal: 12.3 GB",
+                "SwapFree:   2.3 GB (19.0%)",
                 "▕██████████████████████\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███████████████████████Swap free 2.2GB▏"
             ]
         );
         assert_eq!(
             output_swap(&mem_stats, 30),
             [
-                "SwapTotal:  12.3 GB",
-                "SwapFree:    2.3 GB (19.0%)",
+                "SwapTotal: 12.3 GB",
+                "SwapFree:   2.3 GB (19.0%)",
                 "▕██\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███     ▏"
             ]
         );

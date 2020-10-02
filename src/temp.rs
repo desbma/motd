@@ -254,12 +254,7 @@ fn colorize_from_temp(string: String, temp: u32, temp_warning: u32, temp_critica
 pub fn output_temps(temps: TempDeque) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
 
-    let max_name_len = temps
-        .iter()
-        .max_by_key(|x| x.name.len())
-        .unwrap()
-        .name
-        .len();
+    let max_name_len = temps.iter().map(|x| x.name.len()).max().unwrap();
     for sensor_temp in temps {
         let pad = " ".repeat(max_name_len - sensor_temp.name.len());
         let line = format!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
