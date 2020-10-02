@@ -71,14 +71,14 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
         let hwmon_dir = hwmon_entry?
             .into_os_string()
             .into_string()
-            .or_else(|_| Err(SimpleError::new("Failed to convert OS string")))?;
+            .map_err(|_| SimpleError::new("Failed to convert OS string"))?;
         let label_pattern = format!("{}/temp*_label", hwmon_dir);
         for label_entry in glob(&label_pattern).unwrap() {
             // Read sensor name
             let input_label_filepath = label_entry?
                 .into_os_string()
                 .into_string()
-                .or_else(|_| Err(SimpleError::new("Failed to convert OS string")))?;
+                .map_err(|_| SimpleError::new("Failed to convert OS string"))?;
             let mut label = String::new();
             let mut input_label_file = File::open(&input_label_filepath)?;
             input_label_file.read_to_string(&mut label)?;
@@ -194,7 +194,7 @@ fn normalize_drive_path(path: &str) -> Result<String, Box<dyn error::Error>> {
         path_string = real_path
             .into_os_string()
             .into_string()
-            .or_else(|_| Err(SimpleError::new("Failed to convert OS string")))?;
+            .map_err(|_| SimpleError::new("Failed to convert OS string"))?;
     }
 
     Ok(path_string)
