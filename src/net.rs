@@ -56,7 +56,7 @@ pub fn get_network_stats() -> Result<NetworkPendingStats, Box<dyn error::Error>>
     let mut dir_entries: Vec<DirEntry> = fs::read_dir("/sys/class/net")?
         .filter_map(Result::ok)
         .collect();
-    dir_entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    dir_entries.sort_by_key(DirEntry::file_name);
     for dir_entry in dir_entries {
         let itf_name = dir_entry.file_name().to_os_string().into_string().unwrap();
         if itf_name == "lo" {
