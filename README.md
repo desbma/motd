@@ -21,6 +21,7 @@ Dynamically generate Linux MOTD SSH banner
 * memory/swap usage
 * filesystem usage (orange/red if almost full)
 * hardware temperatures (CPU, HDD...) (orange/red if too hot)
+* network interface bandwidth
 * Systemd units in failed state (red)
 
 
