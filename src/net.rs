@@ -6,8 +6,10 @@ use std::io::{Read, Seek, SeekFrom};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
+use ansi_term::Colour::*;
+
 /// Network interface pending stats
-pub struct InterfacePendingStats {
+pub struct PendingInterfaceStats {
     /// Rx byte count
     rx_bytes: u64,
     /// Tx byte count
@@ -18,9 +20,11 @@ pub struct InterfacePendingStats {
     tx_bytes_file: File,
     /// Timestamp
     ts: Instant,
+    /// Interface speed
+    line_bps: Option<u64>,
 }
 
-pub type NetworkPendingStats = BTreeMap<String, InterfacePendingStats>;
+pub type NetworkPendingStats = BTreeMap<String, PendingInterfaceStats>;
 
 /// Network interface stats
 pub struct InterfaceStats {
@@ -28,6 +32,8 @@ pub struct InterfaceStats {
     rx_bps: u64,
     /// Tx bits/s
     tx_bps: u64,
+    /// Interface speed
+    line_bps: Option<u64>,
 }
 
 pub type NetworkStats = BTreeMap<String, InterfaceStats>;
@@ -49,7 +55,7 @@ fn read_interface_stats(
     Ok((rx_bytes, tx_bytes, Instant::now()))
 }
 
-/// Get network stats sample
+/// Get network stats first sample
 pub fn get_network_stats() -> Result<NetworkPendingStats, Box<dyn error::Error>> {
     let mut stats: NetworkPendingStats = NetworkPendingStats::new();
 
@@ -72,14 +78,29 @@ pub fn get_network_stats() -> Result<NetworkPendingStats, Box<dyn error::Error>>
         rx_bytes_file.seek(SeekFrom::Start(0))?;
         tx_bytes_file.seek(SeekFrom::Start(0))?;
 
+        let line_bps = match File::open(format!("{}/speed", itf_dir)) {
+            Ok(mut speed_file) => {
+                let mut speed_str = String::new();
+                match speed_file.read_to_string(&mut speed_str) {
+                    Ok(_) => match speed_str.trim_end().parse::<u64>() {
+                        Ok(speed) => Some(speed * 1_000_000),
+                        Err(_) => None,
+                    },
+                    Err(_) => None,
+                }
+            }
+            Err(_) => None,
+        };
+
         stats.insert(
             itf_name,
-            InterfacePendingStats {
+            PendingInterfaceStats {
                 rx_bytes,
                 tx_bytes,
                 rx_bytes_file,
                 tx_bytes_file,
                 ts,
+                line_bps,
             },
         );
     }
@@ -112,12 +133,20 @@ pub fn update_network_stats(
         let ts_delta_ms = ts2.duration_since(pending_itf_stats.ts).as_millis();
         let rx_bps = 1000 * (rx_bytes2 - pending_itf_stats.rx_bytes) * 8 / ts_delta_ms as u64;
         let tx_bps = 1000 * (tx_bytes2 - pending_itf_stats.tx_bytes) * 8 / ts_delta_ms as u64;
-        stats.insert(itf_name.to_string(), InterfaceStats { rx_bps, tx_bps });
+        stats.insert(
+            itf_name.to_string(),
+            InterfaceStats {
+                rx_bps,
+                tx_bps,
+                line_bps: pending_itf_stats.line_bps,
+            },
+        );
     }
 
     Ok(stats)
 }
 
+/// Format numeric value with K/M/G prefix
 fn format_kmg(val: u64, unit: &str) -> String {
     const G: u64 = 1_000_000_000;
     const M: u64 = 1_000_000;
@@ -130,6 +159,21 @@ fn format_kmg(val: u64, unit: &str) -> String {
         format!("{:.2} K{}", val as f32 / K as f32, unit)
     } else {
         format!("{} {}", val, unit)
+    }
+}
+
+/// Colorize network speed string
+fn colorize_speed(val: u64, line_rate: Option<u64>, s: String) -> String {
+    if let Some(line_rate) = line_rate {
+        if val >= line_rate * 90 / 100 {
+            Red.paint(s).to_string()
+        } else if val >= line_rate * 80 / 100 {
+            Yellow.paint(s).to_string()
+        } else {
+            s
+        }
+    } else {
+        s
     }
 }
 
@@ -164,9 +208,9 @@ pub fn output_network_stats(stats: NetworkStats) -> Vec<String> {
             itf_name,
             name_pad,
             rx_pad,
-            format_kmg(itf_stats.rx_bps, unit),
+            colorize_speed(itf_stats.rx_bps, itf_stats.line_bps, rx_str),
             tx_pad,
-            format_kmg(itf_stats.tx_bps, unit)
+            colorize_speed(itf_stats.tx_bps, itf_stats.line_bps, tx_str)
         );
         lines.push(line);
     }
@@ -186,6 +230,7 @@ mod tests {
             InterfaceStats {
                 rx_bps: 1,
                 tx_bps: 1_234_567,
+                line_bps: None,
             },
         );
         stats.insert(
@@ -193,13 +238,41 @@ mod tests {
             InterfaceStats {
                 rx_bps: 1_234_567_890,
                 tx_bps: 1_234,
+                line_bps: None,
+            },
+        );
+        stats.insert(
+            "itf3".to_string(),
+            InterfaceStats {
+                rx_bps: 799_999,
+                tx_bps: 800_000,
+                line_bps: Some(1_000_000),
+            },
+        );
+        stats.insert(
+            "itf4".to_string(),
+            InterfaceStats {
+                rx_bps: 900_000,
+                tx_bps: 899_999,
+                line_bps: Some(1_000_000),
+            },
+        );
+        stats.insert(
+            "itf5".to_string(),
+            InterfaceStats {
+                rx_bps: 900_000_001,
+                tx_bps: 800_000_001,
+                line_bps: Some(1_000_000_000),
             },
         );
         assert_eq!(
             output_network_stats(stats),
             [
-                "i1:         ↓     1 b/s  ↑ 1.23 Mb/s",
-                "interface2: ↓ 1.23 Gb/s  ↑ 1.23 Kb/s"
+                "i1:         ↓       1 b/s  ↑   1.23 Mb/s",
+                "interface2: ↓   1.23 Gb/s  ↑   1.23 Kb/s",
+                "itf3:       ↓ 800.00 Kb/s  ↑ \u{1b}[33m800.00 Kb/s\u{1b}[0m",
+                "itf4:       ↓ \u{1b}[31m900.00 Kb/s\u{1b}[0m  ↑ \u{1b}[33m900.00 Kb/s\u{1b}[0m",
+                "itf5:       ↓ \u{1b}[31m900.00 Mb/s\u{1b}[0m  ↑ \u{1b}[33m800.00 Mb/s\u{1b}[0m"
             ]
         );
     }
