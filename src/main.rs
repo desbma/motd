@@ -3,7 +3,7 @@ use std::io;
 use std::io::prelude::*;
 use std::iter::Iterator;
 use std::str::FromStr;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::thread;
 
 use ansi_term::Colour::*;
@@ -13,6 +13,7 @@ use itertools::Itertools;
 mod fs;
 mod load;
 mod mem;
+mod net;
 mod systemd;
 mod temp;
 
@@ -24,6 +25,7 @@ enum Section {
     Swap,
     FS,
     Temps,
+    Network,
     SDFailedUnits,
 }
 
@@ -113,6 +115,7 @@ fn section_to_letter(section: Section) -> String {
         Section::Swap => "s".to_string(),
         Section::FS => "f".to_string(),
         Section::Temps => "t".to_string(),
+        Section::Network => "n".to_string(),
         Section::SDFailedUnits => "u".to_string(),
     }
 }
@@ -125,6 +128,7 @@ fn letter_to_section(letter: &str) -> Section {
         "s" => Section::Swap,
         "f" => Section::FS,
         "t" => Section::Temps,
+        "n" => Section::Network,
         "u" => Section::SDFailedUnits,
         _ => unreachable!(), // validated by clap
     }
@@ -148,6 +152,7 @@ fn parse_cl_args() -> CLArgs {
         Section::Swap,
         Section::FS,
         Section::Temps,
+        Section::Network,
         Section::SDFailedUnits,
     ]
     .iter()
@@ -172,12 +177,13 @@ fn parse_cl_args() -> CLArgs {
                 .possible_values(&sections_str)
                 .help(
                     "Sections to display. \
-                     l: Systemd load. \
+                     l: System load. \
                      m: Memory. \
                      s: Swap.\
-                     f: Filesystem. \
+                     f: Filesystem usage. \
                      t: Hardware temperatures. \
-                     u: Systemd failed units.",
+                     n: Network interface stats. \
+                     u: Systemd failed units."
                 ),
         )
         .arg(
@@ -241,8 +247,54 @@ fn parse_cl_args() -> CLArgs {
     }
 }
 
+#[allow(clippy::mutex_atomic)]
 fn main() {
     let cl_args = parse_cl_args();
+
+    // Fetch network stats in a background thread if needed
+    let mut network_lines_rx: Option<mpsc::Receiver<Result<Vec<String>, String>>> = None;
+    let network_lines_needed_sync = Arc::new((Mutex::new(false), Condvar::new()));
+    let network_lines_needed_sync2 = network_lines_needed_sync.clone();
+    let (network_lines_needed_mutex, network_lines_needed_cv) = &*network_lines_needed_sync;
+    if cl_args.sections.contains(&Section::Network)
+        && (*cl_args.sections.first().unwrap() != Section::Network)
+    {
+        let (chan_tx, chan_rx) = mpsc::channel();
+        network_lines_rx = Some(chan_rx);
+        thread::Builder::new()
+            .name("network_worker".to_string())
+            .spawn(move || {
+                // Get network stats
+                let network_stats_sample = net::get_network_stats();
+
+                let lines = match network_stats_sample {
+                    Ok(mut network_stats_sample) => {
+                        // Wait
+                        let (network_lines_needed_mutex, network_lines_needed_cv) =
+                            &*network_lines_needed_sync2;
+                        let mut network_lines_needed = network_lines_needed_mutex.lock().unwrap();
+                        while !*network_lines_needed {
+                            network_lines_needed =
+                                network_lines_needed_cv.wait(network_lines_needed).unwrap();
+                        }
+
+                        // Update stats
+                        let network_stats = net::update_network_stats(&mut network_stats_sample);
+
+                        // Format them to lines
+                        network_stats
+                            .map(net::output_network_stats)
+                            // Also format error to String to pass it in channel
+                            .map_err(|e| e.to_string())
+                    }
+                    Err(e) => Err(e.to_string()),
+                };
+
+                // Send them to main thread
+                chan_tx.send(lines).unwrap();
+            })
+            .unwrap();
+    }
 
     // Fetch systemd failed units in a background thread if needed
     let mut unit_lines_rx: Option<mpsc::Receiver<Result<Vec<String>, String>>> = None;
@@ -397,6 +449,43 @@ fn main() {
                     "Hardware temperatures",
                     lines,
                     temp_lines_rx.as_ref(),
+                    cl_args.show_section_titles,
+                    section == first_section,
+                    cl_args.term_columns,
+                );
+            }
+
+            Section::Network => {
+                // Network stats
+                let lines = match network_lines_rx {
+                    None => {
+                        // Get network stats
+                        let network_stats_sample = net::get_network_stats();
+                        let network_stats = match network_stats_sample {
+                            Ok(mut network_stats_sample) => {
+                                net::update_network_stats(&mut network_stats_sample)
+                                    .map_err(|e| e.to_string())
+                            }
+                            Err(e) => Err(e.to_string()),
+                        };
+
+                        // Format them to lines
+                        Some(network_stats.map(net::output_network_stats))
+                    }
+                    Some(_) => {
+                        // Signal the other side of the channel we need lines now
+                        let mut network_lines_needed = network_lines_needed_mutex.lock().unwrap();
+                        *network_lines_needed = true;
+                        network_lines_needed_cv.notify_one();
+
+                        None
+                    }
+                };
+
+                output_section(
+                    "Network",
+                    lines,
+                    network_lines_rx.as_ref(),
                     cl_args.show_section_titles,
                     section == first_section,
                     cl_args.term_columns,
