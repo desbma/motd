@@ -10,6 +10,8 @@ use bytesize::ByteSize;
 use libc::{endmntent, getmntent, setmntent, statvfs};
 use simple_error::SimpleError;
 
+const MIN_FS_BAR_LEN: usize = 30;
+
 /// Information on a filesystem
 pub struct FsInfo {
     mount_path: String,
@@ -102,6 +104,8 @@ fn fill_fs_info(fs_info: FsInfo) -> Result<FsInfo, io::Error> {
 
 /// Generate a bar to represent filesystem usage
 pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
+    assert!(length >= MIN_FS_BAR_LEN);
+
     let bar_text = format!(
         "{} / {} ({:.1}%)",
         ByteSize(fs_info.used_bytes),
@@ -138,11 +142,31 @@ pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
     )
 }
 
+fn ellipsis(s: &str, max_len: usize) -> String {
+    assert!(max_len >= 1);
+
+    if s.chars().count() <= max_len {
+        s.to_string()
+    } else {
+        let mut new_s = s.to_string();
+        new_s.truncate(max_len - 1);
+        new_s.push('…');
+        new_s
+    }
+}
+
 /// Output filesystem information
 pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) -> Vec<String> {
+    let term_width = cmp::max(term_width, MIN_FS_BAR_LEN + 3);
+    let path_max_len = term_width - 1 - MIN_FS_BAR_LEN;
+
     let mut lines: Vec<String> = Vec::new();
 
-    let max_path_len = fs_info.iter().map(|x| x.mount_path.len()).max().unwrap();
+    let max_path_len = fs_info
+        .iter()
+        .map(|x| ellipsis(&x.mount_path, path_max_len).chars().count())
+        .max()
+        .unwrap();
 
     for cur_fs_info in fs_info {
         let text_style;
@@ -155,13 +179,14 @@ pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) -> Vec<String> {
             text_style = Style::new();
         }
 
+        let pretty_mount_path = ellipsis(&cur_fs_info.mount_path, path_max_len);
         lines.push(format!(
             "{}{} {}",
-            text_style.paint(&cur_fs_info.mount_path),
-            text_style.paint(" ".repeat(max_path_len - cur_fs_info.mount_path.len())),
+            text_style.paint(&pretty_mount_path),
+            text_style.paint(" ".repeat(max_path_len - pretty_mount_path.chars().count())),
             get_fs_bar(
                 &cur_fs_info,
-                cmp::max(term_width - max_path_len - 1, 30),
+                cmp::max(term_width - max_path_len - 1, MIN_FS_BAR_LEN),
                 text_style
             )
         ));
@@ -196,6 +221,17 @@ mod tests {
                 "/foo/bar ▕█           \u{1b}[7m\u{1b}[0m234.6 KB / 7.9 MB (3.0%)             ▏",
                 "/foo/baz ▕█████████████\u{1b}[7m2\u{1b}[0m.3 GB / 7.9 GB (29.7%)             ▏"
             ]
+        );
+        assert_eq!(
+            output_fs_info(
+                vec![FsInfo {
+                    mount_path: "/0123456789".to_string(),
+                    used_bytes: 500,
+                    total_bytes: 1000
+                },],
+                40
+            ),
+            ["/0123456… ▕███\u{1b}[7m500 B / 1.0\u{1b}[0m KB (50.0%)   ▏"]
         );
     }
 
