@@ -148,8 +148,7 @@ fn ellipsis(s: &str, max_len: usize) -> String {
     if s.chars().count() <= max_len {
         s.to_string()
     } else {
-        let mut new_s = s.to_string();
-        new_s.truncate(max_len - 1);
+        let mut new_s: String = s.to_string().chars().take(max_len - 1).collect(); // truncate on unicode char boundaries
         new_s.push('…');
         new_s
     }
@@ -333,5 +332,12 @@ mod tests {
             ),
             "▕███████\u{1b}[7m7.9 TB / 7.9 TB (100.0%)\u{1b}[0m███████▏"
         );
+    }
+
+    #[test]
+    fn test_ellipsis() {
+        assert_eq!(ellipsis("", 3), "…");
+        assert_eq!(ellipsis("", 4), "");
+        assert_eq!(ellipsis("", 5), "");
     }
 }
