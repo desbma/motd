@@ -1,4 +1,5 @@
 use std::cmp;
+use std::collections::HashSet;
 use std::error;
 use std::ffi::{CStr, CString};
 use std::io;
@@ -36,6 +37,7 @@ pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
     }
 
     // Loop over mounts
+    let mut known_devices = HashSet::new();
     loop {
         let mount = unsafe { getmntent(mount_file) };
         if mount.is_null() {
@@ -43,9 +45,11 @@ pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
         }
         let mount_path;
         let fs_type;
+        let fs_dev;
         unsafe {
             mount_path = CStr::from_ptr((*mount).mnt_dir).to_str()?.to_string();
             fs_type = CStr::from_ptr((*mount).mnt_type).to_str()?.to_string();
+            fs_dev = CStr::from_ptr((*mount).mnt_fsname).to_str()?.to_string();
         }
 
         // Exclude some cases
@@ -59,6 +63,14 @@ pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
             || mount_path.starts_with("/var/lib/dhcpcd/run/")
         {
             continue;
+        }
+
+        // Exclude mounts of devices already mounted (avoids duplicate for bind mounts or btrfs subvolumes)
+        if fs_dev.starts_with('/') {
+            if known_devices.contains(&fs_dev) {
+                continue;
+            }
+            known_devices.insert(fs_dev);
         }
 
         // Get filesystem info
