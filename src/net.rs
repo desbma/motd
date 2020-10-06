@@ -3,6 +3,7 @@ use std::error;
 use std::fs;
 use std::fs::{DirEntry, File};
 use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -78,18 +79,23 @@ pub fn get_network_stats() -> Result<NetworkPendingStats, Box<dyn error::Error>>
         rx_bytes_file.seek(SeekFrom::Start(0))?;
         tx_bytes_file.seek(SeekFrom::Start(0))?;
 
-        let line_bps = match File::open(format!("{}/speed", itf_dir)) {
-            Ok(mut speed_file) => {
-                let mut speed_str = String::new();
-                match speed_file.read_to_string(&mut speed_str) {
-                    Ok(_) => match speed_str.trim_end().parse::<u64>() {
-                        Ok(speed) => Some(speed * 1_000_000),
+        let line_bps = if Path::new(&format!("{}/tun_flags", itf_dir)).exists() {
+            /* tun always report 10 Mbps even if we can exceed that limit */
+            None
+        } else {
+            match File::open(format!("{}/speed", itf_dir)) {
+                Ok(mut speed_file) => {
+                    let mut speed_str = String::new();
+                    match speed_file.read_to_string(&mut speed_str) {
+                        Ok(_) => match speed_str.trim_end().parse::<u64>() {
+                            Ok(speed) => Some(speed * 1_000_000),
+                            Err(_) => None, // Some interfaces (bridges) report -1
+                        },
                         Err(_) => None,
-                    },
-                    Err(_) => None,
+                    }
                 }
+                Err(_) => None,
             }
-            Err(_) => None,
         };
 
         stats.insert(
