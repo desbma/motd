@@ -64,7 +64,7 @@ fn output_bar(parts: &[BarPart], length: usize) -> String {
         .map(|part| ((length - 2) as f32 * part.prct / 100.0) as usize)
         .collect();
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::op_ref))]
-    while &part_lens_int.iter().sum() + (2 as usize) < length {
+    while &part_lens_int.iter().sum() + (2_usize) < length {
         // Compute fractional parts
         let part_lens_frac: Vec<f32> = parts
             .iter()
