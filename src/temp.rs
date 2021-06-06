@@ -14,11 +14,11 @@ use simple_error::SimpleError;
 /// Type of temperature sensor
 enum SensorType {
     /// CPU sensor
-    CPU,
+    Cpu,
     /// Hard drive or SSD/NVM sensor
-    DRIVE,
+    Drive,
     /// Other sensors (typically motherboard)
-    OTHER,
+    Other,
 }
 
 /// Temperature data
@@ -90,9 +90,9 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
 
             // Deduce type from name
             let sensor_type = if label.starts_with("CPU ") || label.starts_with("Core ") {
-                SensorType::CPU
+                SensorType::Cpu
             } else {
-                SensorType::OTHER
+                SensorType::Other
             };
 
             // Read temp
@@ -129,11 +129,11 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
                 );
                 let abs_diff = crit_temp_val - max_temp_val;
                 let delta = match sensor_type {
-                    SensorType::CPU => abs_diff / 2,
-                    SensorType::OTHER => 5,
+                    SensorType::Cpu => abs_diff / 2,
+                    SensorType::Other => 5,
                     _ => unreachable!(),
                 };
-                if let SensorType::OTHER = sensor_type {
+                if let SensorType::Other = sensor_type {
                     if abs_diff > 20 {
                         max_temp_val = crit_temp_val - 20;
                     }
@@ -142,8 +142,8 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
                 crit_temp = max_temp_val;
             } else if let Some(max_temp_val) = max_temp_val {
                 let delta = match sensor_type {
-                    SensorType::CPU => 10,
-                    SensorType::OTHER => 5,
+                    SensorType::Cpu => 10,
+                    SensorType::Other => 5,
                     _ => unreachable!(),
                 };
                 warning_temp = max_temp_val - delta;
@@ -151,14 +151,14 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
             } else {
                 warning_temp = match sensor_type {
                     // Fallback to default value
-                    SensorType::CPU => 60,
-                    SensorType::OTHER => 50,
+                    SensorType::Cpu => 60,
+                    SensorType::Other => 50,
                     _ => unreachable!(),
                 };
                 crit_temp = match sensor_type {
                     // Fallback to default value
-                    SensorType::CPU => 75,
-                    SensorType::OTHER => 60,
+                    SensorType::Cpu => 75,
+                    SensorType::Other => 60,
                     _ => unreachable!(),
                 };
             }
@@ -228,7 +228,7 @@ pub fn get_drive_temps() -> Result<TempDeque, Box<dyn error::Error>> {
         // Store temp
         let sensor_temp = SensorTemp {
             name: format!("{} ({})", drive_path, pretty_name),
-            sensor_type: SensorType::DRIVE,
+            sensor_type: SensorType::Drive,
             temp,
             temp_warning: 45,
             temp_critical: 55,
@@ -279,21 +279,21 @@ mod tests {
             output_temps(vec![
                 SensorTemp {
                     name: "sensor1".to_string(),
-                    sensor_type: SensorType::CPU,
+                    sensor_type: SensorType::Cpu,
                     temp: 95,
                     temp_warning: 70,
                     temp_critical: 80
                 },
                 SensorTemp {
                     name: "sensor222222222".to_string(),
-                    sensor_type: SensorType::DRIVE,
+                    sensor_type: SensorType::Drive,
                     temp: 40,
                     temp_warning: 70,
                     temp_critical: 80
                 },
                 SensorTemp {
                     name: "sensor333".to_string(),
-                    sensor_type: SensorType::OTHER,
+                    sensor_type: SensorType::Other,
                     temp: 50,
                     temp_warning: 45,
                     temp_critical: 60

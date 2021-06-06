@@ -93,7 +93,7 @@ fn output_bar(parts: &[BarPart], length: usize) -> String {
         let mut label = String::new();
         for label_part in &part.label {
             if label.len() + label_part.len() <= part_len {
-                label += &label_part;
+                label += label_part;
             } else {
                 break;
             }
@@ -158,7 +158,7 @@ pub fn output_mem(mem_info: &MemInfo, term_width: usize) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
 
     lines.extend(output_mem_stats(
-        &mem_info,
+        mem_info,
         vec!["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"],
         "MemTotal",
     ));
@@ -224,7 +224,7 @@ pub fn output_swap(mem_info: &MemInfo, term_width: usize) -> Vec<String> {
 
     if mem_info["SwapTotal"] > 0 {
         lines.extend(output_mem_stats(
-            &mem_info,
+            mem_info,
             vec!["SwapTotal", "SwapFree"],
             "SwapTotal",
         ));
