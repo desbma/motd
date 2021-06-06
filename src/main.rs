@@ -241,8 +241,8 @@ fn parse_cl_args() -> CLArgs {
     let show_section_titles = !matches.is_present("NO_TITLES");
 
     CLArgs {
-        sections,
         term_columns,
+        sections,
         show_section_titles,
     }
 }
