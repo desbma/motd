@@ -10,6 +10,7 @@ use ansi_term::Colour::*;
 use clap::{App, Arg};
 use itertools::Itertools;
 
+mod fmt;
 mod fs;
 mod load;
 mod mem;

@@ -7,9 +7,10 @@ use std::mem;
 
 use ansi_term::Colour::*;
 use ansi_term::Style;
-use bytesize::ByteSize;
 use libc::{endmntent, getmntent, setmntent, statvfs};
 use simple_error::SimpleError;
+
+use crate::fmt::format_kmg;
 
 const MIN_FS_BAR_LEN: usize = 30;
 
@@ -120,8 +121,8 @@ pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
 
     let bar_text = format!(
         "{} / {} ({:.1}%)",
-        ByteSize(fs_info.used_bytes),
-        ByteSize(fs_info.total_bytes),
+        format_kmg(fs_info.used_bytes, "B"),
+        format_kmg(fs_info.total_bytes, "B"),
         100.0 * fs_info.used_bytes as f32 / fs_info.total_bytes as f32
     );
 
@@ -229,8 +230,8 @@ mod tests {
                 60
             ),
             [
-                "/foo/bar ▕█           \u{1b}[7m\u{1b}[0m234.6 KB / 7.9 MB (3.0%)             ▏",
-                "/foo/baz ▕█████████████\u{1b}[7m2\u{1b}[0m.3 GB / 7.9 GB (29.7%)             ▏"
+                "/foo/bar ▕█          \u{1b}[7m\u{1b}[0m229.06 KB / 7.53 MB (3.0%)            ▏",
+                "/foo/baz ▕████████████\u{1b}[7m2.\u{1b}[0m18 GB / 7.35 GB (29.7%)            ▏"
             ]
         );
         assert_eq!(
@@ -242,7 +243,7 @@ mod tests {
                 },],
                 40
             ),
-            ["/0123456… ▕███\u{1b}[7m500 B / 1.0\u{1b}[0m KB (50.0%)   ▏"]
+            ["/0123456… ▕███\u{1b}[7m500 B / 100\u{1b}[0m0 B (50.0%)   ▏"]
         );
     }
 
@@ -258,7 +259,7 @@ mod tests {
                 40,
                 Red.normal()
             ),
-            "\u{1b}[31m▕\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m       \u{1b}[0m\u{1b}[7;31m\u{1b}[0m\u{1b}[31m23.5 KB / 7.9 MB (0.3%)\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m        \u{1b}[0m\u{1b}[31m▏\u{1b}[0m"
+            "\u{1b}[31m▕\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m      \u{1b}[0m\u{1b}[7;31m\u{1b}[0m\u{1b}[31m22.91 KB / 7.53 MB (0.3%)\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m       \u{1b}[0m\u{1b}[31m▏\u{1b}[0m"
         );
         assert_eq!(
             get_fs_bar(
@@ -270,7 +271,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕         \u{1b}[7m\u{1b}[0m0 B / 7.9 MB (0.0%)          ▏"
+            "▕         \u{1b}[7m\u{1b}[0m0 B / 7.53 MB (0.0%)         ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -282,7 +283,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕██     \u{1b}[7m\u{1b}[0m434.6 KB / 7.9 MB (5.5%)       ▏"
+            "▕██    \u{1b}[7m\u{1b}[0m424.38 KB / 7.53 MB (5.5%)      ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -294,7 +295,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕███████\u{1b}[7m4.9 GB / 7.9 GB \u{1b}[0m(62.0%)        ▏"
+            "▕██████\u{1b}[7m4.56 GB / 7.35 GB\u{1b}[0m (62.0%)       ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -306,7 +307,7 @@ mod tests {
                 30,
                 Style::new()
             ),
-            "▕██\u{1b}[7m4.9 GB / 7.9 GB\u{1b}[0m (62.0%)   ▏"
+            "▕█\u{1b}[7m4.56 GB / 7.35 G\u{1b}[0mB (62.0%)  ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -318,7 +319,7 @@ mod tests {
                 50,
                 Style::new()
             ),
-            "▕████████████\u{1b}[7m4.9 GB / 7.9 GB (\u{1b}[0m62.0%)             ▏"
+            "▕███████████\u{1b}[7m4.56 GB / 7.35 GB \u{1b}[0m(62.0%)            ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -330,7 +331,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕███████\u{1b}[7m6.9 TB / 7.9 TB (87.3%)\u{1b}[0m███     ▏"
+            "▕███\u{1b}[7m6417.75 GB / 7349.08 GB (87.3%\u{1b}[0m)    ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -342,7 +343,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕███████\u{1b}[7m7.9 TB / 7.9 TB (100.0%)\u{1b}[0m███████▏"
+            "▕███\u{1b}[7m7349.08 GB / 7349.08 GB (100.0%)\u{1b}[0m███▏"
         );
     }
 

@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 
 use ansi_term::Colour::*;
 
+use crate::fmt::format_kmg_si;
+
 /// Network interface pending stats
 pub struct PendingInterfaceStats {
     /// Rx byte count
@@ -151,22 +153,6 @@ pub fn update_network_stats(
     Ok(stats)
 }
 
-/// Format numeric value with K/M/G prefix
-fn format_kmg(val: u64, unit: &str) -> String {
-    const G: u64 = 1_000_000_000;
-    const M: u64 = 1_000_000;
-    const K: u64 = 1_000;
-    if val >= G {
-        format!("{:.2} G{}", val as f32 / G as f32, unit)
-    } else if val >= M {
-        format!("{:.2} M{}", val as f32 / M as f32, unit)
-    } else if val >= K {
-        format!("{:.2} K{}", val as f32 / K as f32, unit)
-    } else {
-        format!("{} {}", val, unit)
-    }
-}
-
 /// Colorize network speed string
 fn colorize_speed(val: u64, line_rate: Option<u64>, s: String) -> String {
     if let Some(line_rate) = line_rate {
@@ -193,20 +179,20 @@ pub fn output_network_stats(stats: NetworkStats) -> Vec<String> {
     };
     let mac_rx_str_len = (&stats)
         .iter()
-        .map(|(_k, v)| format_kmg(v.rx_bps, unit).len())
+        .map(|(_k, v)| format_kmg_si(v.rx_bps, unit).len())
         .max()
         .unwrap();
     let mac_tx_str_len = (&stats)
         .iter()
-        .map(|(_k, v)| format_kmg(v.tx_bps, unit).len())
+        .map(|(_k, v)| format_kmg_si(v.tx_bps, unit).len())
         .max()
         .unwrap();
 
     for (itf_name, itf_stats) in stats {
         let name_pad = " ".repeat(max_itf_len - itf_name.len());
-        let rx_str = format_kmg(itf_stats.rx_bps, unit);
+        let rx_str = format_kmg_si(itf_stats.rx_bps, unit);
         let rx_pad = " ".repeat(mac_rx_str_len - rx_str.len());
-        let tx_str = format_kmg(itf_stats.tx_bps, unit);
+        let tx_str = format_kmg_si(itf_stats.tx_bps, unit);
         let tx_pad = " ".repeat(mac_tx_str_len - tx_str.len());
         let line = format!(
             "{}:{} ↓ {}{}  ↑ {}{}",
@@ -274,9 +260,9 @@ mod tests {
             output_network_stats(stats),
             [
                 "i1:         ↓       1 b/s  ↑   1.23 Mb/s",
-                "interface2: ↓   1.23 Gb/s  ↑   1.23 Kb/s",
-                "itf3:       ↓ 800.00 Kb/s  ↑ \u{1b}[33m800.00 Kb/s\u{1b}[0m",
-                "itf4:       ↓ \u{1b}[31m900.00 Kb/s\u{1b}[0m  ↑ \u{1b}[33m900.00 Kb/s\u{1b}[0m",
+                "interface2: ↓   1.23 Gb/s  ↑   1.23 kb/s",
+                "itf3:       ↓ 800.00 kb/s  ↑ \u{1b}[33m800.00 kb/s\u{1b}[0m",
+                "itf4:       ↓ \u{1b}[31m900.00 kb/s\u{1b}[0m  ↑ \u{1b}[33m900.00 kb/s\u{1b}[0m",
                 "itf5:       ↓ \u{1b}[31m900.00 Mb/s\u{1b}[0m  ↑ \u{1b}[33m800.00 Mb/s\u{1b}[0m"
             ]
         );
