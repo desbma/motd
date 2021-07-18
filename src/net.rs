@@ -3,7 +3,6 @@ use std::error;
 use std::fs;
 use std::fs::{DirEntry, File};
 use std::io::{Read, Seek, SeekFrom};
-use std::path::Path;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -69,21 +68,21 @@ pub fn get_network_stats() -> Result<NetworkPendingStats, Box<dyn error::Error>>
         if itf_name == "lo" {
             continue;
         }
-        let itf_dir = dir_entry.path().into_os_string().into_string().unwrap();
+        let itf_dir = dir_entry.path();
 
-        let mut rx_bytes_file = File::open(format!("{}/statistics/rx_bytes", itf_dir))?;
-        let mut tx_bytes_file = File::open(format!("{}/statistics/tx_bytes", itf_dir))?;
+        let mut rx_bytes_file = File::open(itf_dir.join("statistics/rx_bytes"))?;
+        let mut tx_bytes_file = File::open(itf_dir.join("statistics/tx_bytes"))?;
         let (rx_bytes, tx_bytes, ts) =
             read_interface_stats(&mut rx_bytes_file, &mut tx_bytes_file)?;
 
         rx_bytes_file.seek(SeekFrom::Start(0))?;
         tx_bytes_file.seek(SeekFrom::Start(0))?;
 
-        let line_bps = if Path::new(&format!("{}/tun_flags", itf_dir)).exists() {
+        let line_bps = if itf_dir.join("tun_flags").exists() {
             /* tun always report 10 Mbps even if we can exceed that limit */
             None
         } else {
-            match File::open(format!("{}/speed", itf_dir)) {
+            match File::open(itf_dir.join("speed")) {
                 Ok(mut speed_file) => {
                     let mut speed_str = String::new();
                     match speed_file.read_to_string(&mut speed_str) {

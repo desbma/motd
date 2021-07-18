@@ -4,7 +4,7 @@ use std::error;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::net::TcpStream;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use ansi_term::Colour::*;
@@ -40,7 +40,7 @@ pub struct SensorTemp {
 pub type TempDeque = Vec<SensorTemp>;
 
 /// Read temperature from a given hwmon sysfs file
-fn read_sysfs_temp_value(filepath: String) -> Result<Option<u32>, Box<dyn error::Error>> {
+fn read_sysfs_temp_value(filepath: &Path) -> Result<Option<u32>, Box<dyn error::Error>> {
     let mut input_file = match File::open(filepath) {
         Ok(f) => f,
         Err(_) => return Ok(None),
@@ -75,10 +75,7 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
         let label_pattern = format!("{}/temp*_label", hwmon_dir);
         for label_entry in glob(&label_pattern).unwrap() {
             // Read sensor name
-            let input_label_filepath = label_entry?
-                .into_os_string()
-                .into_string()
-                .map_err(|_| SimpleError::new("Failed to convert OS string"))?;
+            let input_label_filepath = label_entry?;
             let mut label = String::new();
             let mut input_label_file = File::open(&input_label_filepath)?;
             input_label_file.read_to_string(&mut label)?;
@@ -96,28 +93,29 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
             };
 
             // Read temp
-            let input_temp_filepath = format!(
+            let input_label_filepath_str = input_label_filepath.to_string_lossy();
+            let input_temp_filepath = PathBuf::from(&format!(
                 "{}_input",
-                input_label_filepath[..input_label_filepath.len() - 6].to_owned()
-            );
-            let temp_val = match read_sysfs_temp_value(input_temp_filepath)? {
+                input_label_filepath_str[..input_label_filepath_str.len() - 6].to_owned()
+            ));
+            let temp_val = match read_sysfs_temp_value(&input_temp_filepath)? {
                 Some(v) => v,
                 None => continue,
             };
 
             // Read warning temp
-            let max_temp_filepath = format!(
+            let max_temp_filepath = PathBuf::from(&format!(
                 "{}_max",
-                input_label_filepath[..input_label_filepath.len() - 6].to_owned()
-            );
-            let max_temp_val = read_sysfs_temp_value(max_temp_filepath)?;
+                input_label_filepath_str[..input_label_filepath_str.len() - 6].to_owned()
+            ));
+            let max_temp_val = read_sysfs_temp_value(&max_temp_filepath)?;
 
             // Read critical temp
-            let crit_temp_filepath = format!(
+            let crit_temp_filepath = PathBuf::from(format!(
                 "{}_crit",
-                input_label_filepath[..input_label_filepath.len() - 6].to_owned()
-            );
-            let crit_temp_val = read_sysfs_temp_value(crit_temp_filepath)?;
+                input_label_filepath_str[..input_label_filepath_str.len() - 6].to_owned()
+            ));
+            let crit_temp_val = read_sysfs_temp_value(&crit_temp_filepath)?;
 
             // Compute warning & critical temps
             let warning_temp;
@@ -179,8 +177,8 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
 }
 
 /// Normalize a drive device path by making it absolute and following links
-fn normalize_drive_path(path: &str) -> Result<String, Box<dyn error::Error>> {
-    let mut path_string = path.to_string();
+fn normalize_drive_path(path: &Path) -> Result<PathBuf, Box<dyn error::Error>> {
+    let mut path_string: PathBuf = path.to_path_buf();
     let fs_path = Path::new(path);
 
     if fs::symlink_metadata(path)?.file_type().is_symlink() {
@@ -191,10 +189,7 @@ fn normalize_drive_path(path: &str) -> Result<String, Box<dyn error::Error>> {
                 .ok_or_else(|| SimpleError::new("Unable to get drive parent directory"))?;
             real_path = dirname.join(real_path).canonicalize()?;
         }
-        path_string = real_path
-            .into_os_string()
-            .into_string()
-            .map_err(|_| SimpleError::new("Failed to convert OS string"))?;
+        path_string = real_path;
     }
 
     Ok(path_string)
@@ -218,7 +213,7 @@ pub fn get_drive_temps() -> Result<TempDeque, Box<dyn error::Error>> {
     // Parse
     let drives_data: Vec<&str> = data.split('|').collect();
     for drive_data in drives_data.chunks_exact(5) {
-        let drive_path = normalize_drive_path(drive_data[1])?;
+        let drive_path = normalize_drive_path(&PathBuf::from(drive_data[1]))?;
         let pretty_name = drive_data[2];
         let temp = match u32::from_str(drive_data[3]) {
             Ok(t) => t,
@@ -227,7 +222,7 @@ pub fn get_drive_temps() -> Result<TempDeque, Box<dyn error::Error>> {
 
         // Store temp
         let sensor_temp = SensorTemp {
-            name: format!("{} ({})", drive_path, pretty_name),
+            name: format!("{} ({})", drive_path.to_str().unwrap(), pretty_name),
             sensor_type: SensorType::Drive,
             temp,
             temp_warning: 45,
