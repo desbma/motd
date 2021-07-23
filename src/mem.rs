@@ -7,7 +7,7 @@ use std::str::FromStr;
 use ansi_term::Style;
 use simple_error::SimpleError;
 
-use crate::fmt::format_kmg;
+use crate::fmt::format_kmgt;
 
 /// Map of memory usage info, unit is kB or page count
 pub type MemInfo = HashMap<String, u64>;
@@ -131,11 +131,11 @@ fn output_mem_stats(mem_info: &MemInfo, keys: Vec<&str>, total_key: &str) -> Vec
     let max_key_len = keys.iter().map(|x| x.len()).max().unwrap();
     let mac_size_str_len = keys
         .iter()
-        .map(|&x| format_kmg(mem_info[x] * 1024, "B").len())
+        .map(|&x| format_kmgt(mem_info[x] * 1024, "B").len())
         .max()
         .unwrap();
     for &key in keys.iter() {
-        let size_str = format_kmg(mem_info[key] * 1024, "B");
+        let size_str = format_kmgt(mem_info[key] * 1024, "B");
         let mut line: String = format!(
             "{}: {}{}",
             key,
@@ -665,9 +665,9 @@ mod tests {
                 "stat3333"
             ),
             [
-                "stat1:        123.00 KB ( 0.0%)",
-                "stat22222222:   1.18 GB ( 1.0%)",
-                "stat3333:     117.74 GB"
+                "stat1:        123.0 KB ( 0.0%)",
+                "stat22222222:   1.2 GB ( 1.0%)",
+                "stat3333:     117.7 GB"
             ]
         );
     }
@@ -683,11 +683,11 @@ mod tests {
         mem_stats.insert("itsatrap".to_string(), 1024);
         assert_eq!(
             output_mem(&mem_stats, 80),
-            ["MemTotal: 12.06 MB", "MemFree:   1.21 MB (10.0%)", "Dirty:     2.08 MB (17.3%)", "Cached:    3.05 MB (25.3%)", "Buffers:   4.22 MB (35.0%)", "▕████\u{1b}[7mUsed 0.0GB (33.3%)\u{1b}[0m████\u{1b}[2m█████████████\u{1b}[0m\u{1b}[2;7mCached 0.0GB (58.3%)\u{1b}[0m\u{1b}[2m█████████████\u{1b}[0m Free ▏"]
+            ["MemTotal: 12.1 MB", "MemFree:   1.2 MB (10.0%)", "Dirty:     2.1 MB (17.3%)", "Cached:    3.1 MB (25.3%)", "Buffers:   4.2 MB (35.0%)", "▕████\u{1b}[7mUsed 0.0GB (33.3%)\u{1b}[0m████\u{1b}[2m█████████████\u{1b}[0m\u{1b}[2;7mCached 0.0GB (58.3%)\u{1b}[0m\u{1b}[2m█████████████\u{1b}[0m Free ▏"]
         );
         assert_eq!(
             output_mem(&mem_stats, 30),
-            ["MemTotal: 12.06 MB", "MemFree:   1.21 MB (10.0%)", "Dirty:     2.08 MB (17.3%)", "Cached:    3.05 MB (25.3%)", "Buffers:   4.22 MB (35.0%)", "▕██\u{1b}[7mUsed\u{1b}[0m███\u{1b}[2m██\u{1b}[0m\u{1b}[2;7mCached 0.0GB\u{1b}[0m\u{1b}[2m██\u{1b}[0m   ▏"]
+            ["MemTotal: 12.1 MB", "MemFree:   1.2 MB (10.0%)", "Dirty:     2.1 MB (17.3%)", "Cached:    3.1 MB (25.3%)", "Buffers:   4.2 MB (35.0%)", "▕██\u{1b}[7mUsed\u{1b}[0m███\u{1b}[2m██\u{1b}[0m\u{1b}[2;7mCached 0.0GB\u{1b}[0m\u{1b}[2m██\u{1b}[0m   ▏"]
         );
     }
 
@@ -699,13 +699,13 @@ mod tests {
         mem_stats.insert("itsatrap".to_string(), 1024);
         assert_eq!(
             output_swap(&mem_stats, 80),
-            ["SwapTotal: 11.77 GB", "SwapFree:   2.24 GB (19.0%)", "▕██████████████████████\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███████████████████████Swap free 2.2GB▏"]
+            ["SwapTotal: 11.8 GB", "SwapFree:   2.2 GB (19.0%)", "▕██████████████████████\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███████████████████████Swap free 2.2GB▏"]
         );
         assert_eq!(
             output_swap(&mem_stats, 30),
             [
-                "SwapTotal: 11.77 GB",
-                "SwapFree:   2.24 GB (19.0%)",
+                "SwapTotal: 11.8 GB",
+                "SwapFree:   2.2 GB (19.0%)",
                 "▕██\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███     ▏"
             ]
         );

@@ -10,7 +10,7 @@ use ansi_term::Style;
 use libc::{endmntent, getmntent, setmntent, statvfs};
 use simple_error::SimpleError;
 
-use crate::fmt::format_kmg;
+use crate::fmt::format_kmgt;
 
 const MIN_FS_BAR_LEN: usize = 30;
 
@@ -121,8 +121,8 @@ pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
 
     let bar_text = format!(
         "{} / {} ({:.1}%)",
-        format_kmg(fs_info.used_bytes, "B"),
-        format_kmg(fs_info.total_bytes, "B"),
+        format_kmgt(fs_info.used_bytes, "B"),
+        format_kmgt(fs_info.total_bytes, "B"),
         100.0 * fs_info.used_bytes as f32 / fs_info.total_bytes as f32
     );
 
@@ -230,8 +230,8 @@ mod tests {
                 60
             ),
             [
-                "/foo/bar ▕█          \u{1b}[7m\u{1b}[0m229.06 KB / 7.53 MB (3.0%)            ▏",
-                "/foo/baz ▕████████████\u{1b}[7m2.\u{1b}[0m18 GB / 7.35 GB (29.7%)            ▏"
+                "/foo/bar ▕█           \u{1b}[7m\u{1b}[0m229.1 KB / 7.5 MB (3.0%)             ▏",
+                "/foo/baz ▕█████████████\u{1b}[7m2\u{1b}[0m.2 GB / 7.3 GB (29.7%)             ▏"
             ]
         );
         assert_eq!(
@@ -259,7 +259,7 @@ mod tests {
                 40,
                 Red.normal()
             ),
-            "\u{1b}[31m▕\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m      \u{1b}[0m\u{1b}[7;31m\u{1b}[0m\u{1b}[31m22.91 KB / 7.53 MB (0.3%)\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m       \u{1b}[0m\u{1b}[31m▏\u{1b}[0m"
+            "\u{1b}[31m▕\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m       \u{1b}[0m\u{1b}[7;31m\u{1b}[0m\u{1b}[31m22.9 KB / 7.5 MB (0.3%)\u{1b}[0m\u{1b}[31m\u{1b}[0m\u{1b}[31m        \u{1b}[0m\u{1b}[31m▏\u{1b}[0m"
         );
         assert_eq!(
             get_fs_bar(
@@ -271,7 +271,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕         \u{1b}[7m\u{1b}[0m0 B / 7.53 MB (0.0%)         ▏"
+            "▕         \u{1b}[7m\u{1b}[0m0 B / 7.5 MB (0.0%)          ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -283,7 +283,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕██    \u{1b}[7m\u{1b}[0m424.38 KB / 7.53 MB (5.5%)      ▏"
+            "▕██     \u{1b}[7m\u{1b}[0m424.4 KB / 7.5 MB (5.5%)       ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -295,7 +295,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕██████\u{1b}[7m4.56 GB / 7.35 GB\u{1b}[0m (62.0%)       ▏"
+            "▕███████\u{1b}[7m4.6 GB / 7.3 GB \u{1b}[0m(62.0%)        ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -307,7 +307,7 @@ mod tests {
                 30,
                 Style::new()
             ),
-            "▕█\u{1b}[7m4.56 GB / 7.35 G\u{1b}[0mB (62.0%)  ▏"
+            "▕██\u{1b}[7m4.6 GB / 7.3 GB\u{1b}[0m (62.0%)   ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -319,7 +319,7 @@ mod tests {
                 50,
                 Style::new()
             ),
-            "▕███████████\u{1b}[7m4.56 GB / 7.35 GB \u{1b}[0m(62.0%)            ▏"
+            "▕████████████\u{1b}[7m4.6 GB / 7.3 GB (\u{1b}[0m62.0%)             ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -331,7 +331,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕███\u{1b}[7m6417.75 GB / 7349.08 GB (87.3%\u{1b}[0m)    ▏"
+            "▕███████\u{1b}[7m6.3 TB / 7.2 TB (87.3%)\u{1b}[0m███     ▏"
         );
         assert_eq!(
             get_fs_bar(
@@ -343,7 +343,7 @@ mod tests {
                 40,
                 Style::new()
             ),
-            "▕███\u{1b}[7m7349.08 GB / 7349.08 GB (100.0%)\u{1b}[0m███▏"
+            "▕███████\u{1b}[7m7.2 TB / 7.2 TB (100.0%)\u{1b}[0m███████▏"
         );
     }
 

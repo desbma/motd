@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use ansi_term::Colour::*;
 
-use crate::fmt::format_kmg_si;
+use crate::fmt::format_kmgt_si;
 
 /// Network interface pending stats
 pub struct PendingInterfaceStats {
@@ -179,20 +179,20 @@ pub fn output_network_stats(stats: NetworkStats) -> Vec<String> {
     };
     let mac_rx_str_len = (&stats)
         .iter()
-        .map(|(_k, v)| format_kmg_si(v.rx_bps, unit).len())
+        .map(|(_k, v)| format_kmgt_si(v.rx_bps, unit).len())
         .max()
         .unwrap();
     let mac_tx_str_len = (&stats)
         .iter()
-        .map(|(_k, v)| format_kmg_si(v.tx_bps, unit).len())
+        .map(|(_k, v)| format_kmgt_si(v.tx_bps, unit).len())
         .max()
         .unwrap();
 
     for (itf_name, itf_stats) in stats {
         let name_pad = " ".repeat(max_itf_len - itf_name.len());
-        let rx_str = format_kmg_si(itf_stats.rx_bps, unit);
+        let rx_str = format_kmgt_si(itf_stats.rx_bps, unit);
         let rx_pad = " ".repeat(mac_rx_str_len - rx_str.len());
-        let tx_str = format_kmg_si(itf_stats.tx_bps, unit);
+        let tx_str = format_kmgt_si(itf_stats.tx_bps, unit);
         let tx_pad = " ".repeat(mac_tx_str_len - tx_str.len());
         let line = format!(
             "{}:{} ↓ {}{}  ↑ {}{}",
@@ -259,11 +259,11 @@ mod tests {
         assert_eq!(
             output_network_stats(stats),
             [
-                "i1:         ↓       1 b/s  ↑   1.23 Mb/s",
-                "interface2: ↓   1.23 Gb/s  ↑   1.23 kb/s",
-                "itf3:       ↓ 800.00 kb/s  ↑ \u{1b}[33m800.00 kb/s\u{1b}[0m",
-                "itf4:       ↓ \u{1b}[31m900.00 kb/s\u{1b}[0m  ↑ \u{1b}[33m900.00 kb/s\u{1b}[0m",
-                "itf5:       ↓ \u{1b}[31m900.00 Mb/s\u{1b}[0m  ↑ \u{1b}[33m800.00 Mb/s\u{1b}[0m"
+                "i1:         ↓      1 b/s  ↑   1.2 Mb/s",
+                "interface2: ↓   1.2 Gb/s  ↑   1.2 kb/s",
+                "itf3:       ↓ 800.0 kb/s  ↑ \u{1b}[33m800.0 kb/s\u{1b}[0m",
+                "itf4:       ↓ \u{1b}[31m900.0 kb/s\u{1b}[0m  ↑ \u{1b}[33m900.0 kb/s\u{1b}[0m",
+                "itf5:       ↓ \u{1b}[31m900.0 Mb/s\u{1b}[0m  ↑ \u{1b}[33m800.0 Mb/s\u{1b}[0m"
             ]
         );
     }
