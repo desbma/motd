@@ -98,7 +98,7 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
                 "{}_input",
                 input_label_filepath_str[..input_label_filepath_str.len() - 6].to_owned()
             ));
-            let temp_val = match read_sysfs_temp_value(&input_temp_filepath)? {
+            let temp_val = match read_sysfs_temp_value(&input_temp_filepath).unwrap_or(None) {
                 Some(v) => v,
                 None => continue,
             };
