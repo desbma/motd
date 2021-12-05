@@ -26,6 +26,22 @@ Dynamically generate Linux MOTD SSH banner
 
 [![Imgur](https://i.imgur.com/OPrRqKzl.png)](https://i.imgur.com/OPrRqKz.png)
 
+## Installation
+
+### From source
+
+You need a Rust build environment for example from [rustup](https://rustup.rs/).
+
+```
+cargo build --release
+strip --strip-all target/release/motd
+install -Dm 755 -t /usr/local/bin target/release/motd
+```
+
+### From the AUR
+
+Arch Linux users can install the [motd AUR package](https://aur.archlinux.org/packages/motd/).
+
 ## License
 
 [GPLv3](https://www.gnu.org/licenses/gpl-3.0-standalone.html)
