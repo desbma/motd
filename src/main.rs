@@ -209,7 +209,7 @@ fn parse_cl_args() -> CLArgs {
     let sections = matches
         .values_of("SECTIONS")
         .unwrap()
-        .map(|s| letter_to_section(s))
+        .map(letter_to_section)
         .unique()
         .collect();
     let term_columns: usize = match isize::from_str(matches.value_of("COLUMNS").unwrap()).unwrap() {
