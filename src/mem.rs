@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::error;
+use std::fmt::Write;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::str::FromStr;
@@ -58,6 +59,7 @@ struct BarPart {
 }
 
 /// Print memory bar
+#[allow(clippy::unnecessary_to_owned)]
 fn output_bar(parts: &[BarPart], length: usize) -> String {
     // Compute part lengths and handle rounding
     let mut part_lens_int: Vec<usize> = parts
@@ -143,10 +145,12 @@ fn output_mem_stats(mem_info: &MemInfo, keys: Vec<&str>, total_key: &str) -> Vec
             size_str
         );
         if key != total_key {
-            line += &format!(
+            write!(
+                line,
                 " ({: >4.1}%)",
                 100.0 * mem_info[key] as f32 / mem_info[total_key] as f32
-            );
+            )
+            .unwrap();
         }
         lines.push(line);
     }
