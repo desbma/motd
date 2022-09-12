@@ -8,6 +8,7 @@ edition = "2018"
 lto = true
 codegen-units = 1
 panic = "abort"
+strip = true
 
 [dependencies]
 ansi_term = "~0.12"
