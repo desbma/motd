@@ -1,10 +1,8 @@
-use std::error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::str::FromStr;
 
 use ansi_term::Colour::*;
-use simple_error::SimpleError;
 
 /// Names of failed Systemd units
 pub struct LoadInfo {
@@ -19,7 +17,7 @@ pub struct LoadInfo {
 }
 
 /// Fetch load information from /proc/loadavg
-pub fn get_load_info() -> Result<LoadInfo, Box<dyn error::Error>> {
+pub fn get_load_info() -> anyhow::Result<LoadInfo> {
     let mut load_info = LoadInfo {
         load_avg_1m: 0.0,
         load_avg_5m: 0.0,
@@ -35,26 +33,26 @@ pub fn get_load_info() -> Result<LoadInfo, Box<dyn error::Error>> {
     load_info.load_avg_1m = f32::from_str(
         tokens_it
             .next()
-            .ok_or_else(|| SimpleError::new("Failed to parse load average 1m"))?,
+            .ok_or_else(|| anyhow::anyhow!("Failed to parse load average 1m"))?,
     )?;
     load_info.load_avg_5m = f32::from_str(
         tokens_it
             .next()
-            .ok_or_else(|| SimpleError::new("Failed to parse load average 5m"))?,
+            .ok_or_else(|| anyhow::anyhow!("Failed to parse load average 5m"))?,
     )?;
     load_info.load_avg_15m = f32::from_str(
         tokens_it
             .next()
-            .ok_or_else(|| SimpleError::new("Failed to parse load average 15m"))?,
+            .ok_or_else(|| anyhow::anyhow!("Failed to parse load average 15m"))?,
     )?;
 
     load_info.task_count = u32::from_str(
         tokens_it
             .next()
-            .ok_or_else(|| SimpleError::new("Failed to parse task count"))?
+            .ok_or_else(|| anyhow::anyhow!("Failed to parse task count"))?
             .split('/')
             .nth(1)
-            .ok_or_else(|| SimpleError::new("Failed to parse task count"))?,
+            .ok_or_else(|| anyhow::anyhow!("Failed to parse task count"))?,
     )?;
 
     Ok(load_info)

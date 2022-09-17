@@ -12,10 +12,10 @@ strip = true
 
 [dependencies]
 ansi_term = { version = "0.12.1", default-features = false }
+anyhow = { version = "1.0", default-features = false, features = ["std", "backtrace"] }
 clap =  { version = "2.34.0", default-features = false, features = ["color"] }
 glob =  { version = "0.3", default-features = false }
 itertools =  "0.8"
 libc =  { version = "0.2", default-features = false }
 num_cpus =  { version = "1.11", default-features = false }
-simple-error =  { version = "0.2", default-features = false }
 termsize =  { version = "0.1", default-features = false }

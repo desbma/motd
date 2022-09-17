@@ -1,6 +1,5 @@
 use std::cmp;
 use std::collections::HashSet;
-use std::error;
 use std::ffi::{CStr, CString};
 use std::io;
 use std::mem;
@@ -8,7 +7,6 @@ use std::mem;
 use ansi_term::Colour::*;
 use ansi_term::Style;
 use libc::{endmntent, getmntent, setmntent, statvfs};
-use simple_error::SimpleError;
 
 use crate::fmt::format_kmgt;
 
@@ -25,7 +23,7 @@ pub struct FsInfo {
 pub type FsInfoVec = Vec<FsInfo>;
 
 /// Fetch filesystem information for all filesystems
-pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
+pub fn get_fs_info() -> anyhow::Result<FsInfoVec> {
     let mut fs_info = FsInfoVec::new();
 
     // Open mount list file
@@ -33,9 +31,7 @@ pub fn get_fs_info() -> Result<FsInfoVec, Box<dyn error::Error>> {
     let path = CString::new("/proc/mounts")?;
     let mode = CString::new("r")?;
     let mount_file = unsafe { setmntent(path.as_ptr(), mode.as_ptr()) };
-    if mount_file.is_null() {
-        return Err(Box::new(SimpleError::new("setmntent failed")));
-    }
+    anyhow::ensure!(!mount_file.is_null(), "setmntent failed");
 
     // Loop over mounts
     let mut known_devices = HashSet::new();

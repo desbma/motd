@@ -1,6 +1,5 @@
 use std::cmp;
 use std::collections::HashSet;
-use std::error;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::net::TcpStream;
@@ -9,7 +8,6 @@ use std::str::FromStr;
 
 use ansi_term::Colour::*;
 use glob::glob;
-use simple_error::SimpleError;
 
 /// Type of temperature sensor
 enum SensorType {
@@ -40,7 +38,7 @@ pub struct SensorTemp {
 pub type TempDeque = Vec<SensorTemp>;
 
 /// Read temperature from a given hwmon sysfs file
-fn read_sysfs_temp_value(filepath: &Path) -> Result<Option<u32>, Box<dyn error::Error>> {
+fn read_sysfs_temp_value(filepath: &Path) -> anyhow::Result<Option<u32>> {
     let mut input_file = match File::open(filepath) {
         Ok(f) => f,
         Err(_) => return Ok(None),
@@ -58,7 +56,7 @@ fn read_sysfs_temp_value(filepath: &Path) -> Result<Option<u32>, Box<dyn error::
 }
 
 /// Probe temperatures from hwmon Linux sensors exposed in /sys/class/hwmon/
-pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
+pub fn get_hwmon_temps() -> anyhow::Result<TempDeque> {
     let mut temps = Vec::new();
 
     // Totally incomplete and arbitary list of sensor names to blacklist
@@ -71,7 +69,7 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
         let hwmon_dir = hwmon_entry?
             .into_os_string()
             .into_string()
-            .map_err(|_| SimpleError::new("Failed to convert OS string"))?;
+            .map_err(|_| anyhow::anyhow!("Failed to convert OS string"))?;
         let label_pattern = format!("{}/temp*_label", hwmon_dir);
         for label_entry in glob(&label_pattern).unwrap() {
             // Read sensor name
@@ -177,7 +175,7 @@ pub fn get_hwmon_temps() -> Result<TempDeque, Box<dyn error::Error>> {
 }
 
 /// Normalize a drive device path by making it absolute and following links
-fn normalize_drive_path(path: &Path) -> Result<PathBuf, Box<dyn error::Error>> {
+fn normalize_drive_path(path: &Path) -> anyhow::Result<PathBuf> {
     let mut path_string: PathBuf = path.to_path_buf();
     let fs_path = Path::new(path);
 
@@ -186,7 +184,7 @@ fn normalize_drive_path(path: &Path) -> Result<PathBuf, Box<dyn error::Error>> {
         if !real_path.is_absolute() {
             let dirname = fs_path
                 .parent()
-                .ok_or_else(|| SimpleError::new("Unable to get drive parent directory"))?;
+                .ok_or_else(|| anyhow::anyhow!("Unable to get drive parent directory"))?;
             real_path = dirname.join(real_path).canonicalize()?;
         }
         path_string = real_path;
@@ -196,7 +194,7 @@ fn normalize_drive_path(path: &Path) -> Result<PathBuf, Box<dyn error::Error>> {
 }
 
 /// Probe drive temperatures from hddtemp daemon
-pub fn get_drive_temps() -> Result<TempDeque, Box<dyn error::Error>> {
+pub fn get_drive_temps() -> anyhow::Result<TempDeque> {
     let mut temps = Vec::new();
 
     // Connect

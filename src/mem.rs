@@ -1,12 +1,10 @@
 use std::collections::HashMap;
-use std::error;
 use std::fmt::Write;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::str::FromStr;
 
 use ansi_term::Style;
-use simple_error::SimpleError;
 
 use crate::fmt::format_kmgt;
 
@@ -14,7 +12,7 @@ use crate::fmt::format_kmgt;
 pub type MemInfo = HashMap<String, u64>;
 
 /// Fetch memory usage info from procfs
-pub fn get_mem_info() -> Result<MemInfo, Box<dyn error::Error>> {
+pub fn get_mem_info() -> anyhow::Result<MemInfo> {
     let mut mem_info = MemInfo::new();
     let file = File::open("/proc/meminfo")?;
     let reader = BufReader::new(file);
@@ -24,17 +22,17 @@ pub fn get_mem_info() -> Result<MemInfo, Box<dyn error::Error>> {
         let mut tokens_it = line_str.split(':');
         let key = tokens_it
             .next()
-            .ok_or_else(|| SimpleError::new("Failed to parse memory info"))?
+            .ok_or_else(|| anyhow::anyhow!("Failed to parse memory info"))?
             .to_string();
         let val_str = tokens_it
             .next()
-            .ok_or_else(|| SimpleError::new("Failed to parse memory value"))?
+            .ok_or_else(|| anyhow::anyhow!("Failed to parse memory value"))?
             .trim_start();
         let val = u64::from_str(
             val_str
                 .split(' ')
                 .next()
-                .ok_or_else(|| SimpleError::new("Failed to parse memory value"))?,
+                .ok_or_else(|| anyhow::anyhow!("Failed to parse memory value"))?,
         )?;
 
         // Store info

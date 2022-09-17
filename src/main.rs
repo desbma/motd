@@ -249,7 +249,7 @@ fn parse_cl_args() -> CLArgs {
 }
 
 #[allow(clippy::mutex_atomic)]
-fn main() {
+fn main() -> anyhow::Result<()> {
     let cl_args = parse_cl_args();
 
     // Fetch network stats in a background thread if needed
@@ -525,4 +525,6 @@ fn main() {
             }
         }
     }
+
+    Ok(())
 }

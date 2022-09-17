@@ -1,9 +1,7 @@
-use std::error;
 use std::io::BufRead;
 use std::process::{Command, Stdio};
 
 use ansi_term::Colour::*;
-use simple_error::SimpleError;
 
 /// Names of failed Systemd units
 type FailedUnits = Vec<String>;
@@ -15,7 +13,7 @@ pub enum SystemdMode {
 }
 
 /// Get name of Systemd units in failed state
-pub fn get_failed_units(mode: &SystemdMode) -> Result<FailedUnits, Box<dyn error::Error>> {
+pub fn get_failed_units(mode: &SystemdMode) -> anyhow::Result<FailedUnits> {
     let mut units: FailedUnits = FailedUnits::new();
 
     let mut args = match mode {
@@ -27,16 +25,14 @@ pub fn get_failed_units(mode: &SystemdMode) -> Result<FailedUnits, Box<dyn error
         .args(&args)
         .stderr(Stdio::null())
         .output()?;
-    if !output.status.success() {
-        return Err(Box::new(SimpleError::new("systemctl failed")));
-    }
+    anyhow::ensure!(output.status.success(), "systemctl failed");
     for line in output.stdout.lines() {
         units.push(
             line?
                 .trim_start()
                 .split(' ')
                 .next()
-                .ok_or_else(|| SimpleError::new("Failed to parse systemctl output"))?
+                .ok_or_else(|| anyhow::anyhow!("Failed to parse systemctl output"))?
                 .to_string(),
         );
     }
