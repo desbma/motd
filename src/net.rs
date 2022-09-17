@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
-use std::fs;
-use std::fs::{DirEntry, File};
+use std::fmt;
+use std::fs::{self, DirEntry, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -8,9 +8,10 @@ use std::time::{Duration, Instant};
 use ansi_term::Colour::*;
 
 use crate::fmt::format_kmgt_si;
+use crate::module::ModuleData;
 
 /// Network interface pending stats
-pub struct PendingInterfaceStats {
+struct PendingInterfaceStats {
     /// Rx byte count
     rx_bytes: u64,
     /// Tx byte count
@@ -25,7 +26,7 @@ pub struct PendingInterfaceStats {
     line_bps: Option<u64>,
 }
 
-pub type NetworkPendingStats = BTreeMap<String, PendingInterfaceStats>;
+type NetworkPendingStats = BTreeMap<String, PendingInterfaceStats>;
 
 /// Network interface stats
 pub struct InterfaceStats {
@@ -37,9 +38,17 @@ pub struct InterfaceStats {
     line_bps: Option<u64>,
 }
 
-pub type NetworkStats = BTreeMap<String, InterfaceStats>;
+pub struct NetworkStats {
+    interfaces: BTreeMap<String, InterfaceStats>,
+}
 
 const MIN_DELAY_BETWEEN_NET_SAMPLES_MS: u64 = 30;
+
+pub fn fetch() -> anyhow::Result<ModuleData> {
+    let mut sample = get_network_stats()?;
+    let stats = update_network_stats(&mut sample)?;
+    Ok(ModuleData::Network(stats))
+}
 
 fn read_interface_stats(
     rx_bytes_file: &mut File,
@@ -57,7 +66,7 @@ fn read_interface_stats(
 }
 
 /// Get network stats first sample
-pub fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
+fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
     let mut stats: NetworkPendingStats = NetworkPendingStats::new();
 
     let mut dir_entries: Vec<DirEntry> = fs::read_dir("/sys/class/net")?
@@ -115,10 +124,8 @@ pub fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
 }
 
 /// Get network stats second sample and build interface stats
-pub fn update_network_stats(
-    pending_stats: &mut NetworkPendingStats,
-) -> anyhow::Result<NetworkStats> {
-    let mut stats: NetworkStats = NetworkStats::new();
+fn update_network_stats(pending_stats: &mut NetworkPendingStats) -> anyhow::Result<NetworkStats> {
+    let mut stats = BTreeMap::new();
 
     for (itf_name, pending_itf_stats) in pending_stats.iter_mut() {
         // Ensure there is sufficient time between samples
@@ -149,7 +156,7 @@ pub fn update_network_stats(
         );
     }
 
-    Ok(stats)
+    Ok(NetworkStats { interfaces: stats })
 }
 
 /// Colorize network speed string
@@ -167,45 +174,45 @@ fn colorize_speed(val: u64, line_rate: Option<u64>, s: String) -> String {
     }
 }
 
-/// Output network stats
-pub fn output_network_stats(stats: NetworkStats) -> Vec<String> {
-    let mut lines: Vec<String> = Vec::new();
+impl fmt::Display for NetworkStats {
+    /// Output network stats
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let unit = "b/s";
+        let max_itf_len = match (&self.interfaces).iter().map(|(k, _v)| k.len()).max() {
+            Some(m) => m,
+            None => return Ok(()),
+        };
+        let mac_rx_str_len = (&self.interfaces)
+            .iter()
+            .map(|(_k, v)| format_kmgt_si(v.rx_bps, unit).len())
+            .max()
+            .unwrap();
+        let mac_tx_str_len = (&self.interfaces)
+            .iter()
+            .map(|(_k, v)| format_kmgt_si(v.tx_bps, unit).len())
+            .max()
+            .unwrap();
 
-    let unit = "b/s";
-    let max_itf_len = match (&stats).iter().map(|(k, _v)| k.len()).max() {
-        Some(m) => m,
-        None => return lines,
-    };
-    let mac_rx_str_len = (&stats)
-        .iter()
-        .map(|(_k, v)| format_kmgt_si(v.rx_bps, unit).len())
-        .max()
-        .unwrap();
-    let mac_tx_str_len = (&stats)
-        .iter()
-        .map(|(_k, v)| format_kmgt_si(v.tx_bps, unit).len())
-        .max()
-        .unwrap();
+        for (itf_name, itf_stats) in &self.interfaces {
+            let name_pad = " ".repeat(max_itf_len - itf_name.len());
+            let rx_str = format_kmgt_si(itf_stats.rx_bps, unit);
+            let rx_pad = " ".repeat(mac_rx_str_len - rx_str.len());
+            let tx_str = format_kmgt_si(itf_stats.tx_bps, unit);
+            let tx_pad = " ".repeat(mac_tx_str_len - tx_str.len());
+            writeln!(
+                f,
+                "{}:{} ↓ {}{}  ↑ {}{}",
+                itf_name,
+                name_pad,
+                rx_pad,
+                colorize_speed(itf_stats.rx_bps, itf_stats.line_bps, rx_str),
+                tx_pad,
+                colorize_speed(itf_stats.tx_bps, itf_stats.line_bps, tx_str)
+            )?;
+        }
 
-    for (itf_name, itf_stats) in stats {
-        let name_pad = " ".repeat(max_itf_len - itf_name.len());
-        let rx_str = format_kmgt_si(itf_stats.rx_bps, unit);
-        let rx_pad = " ".repeat(mac_rx_str_len - rx_str.len());
-        let tx_str = format_kmgt_si(itf_stats.tx_bps, unit);
-        let tx_pad = " ".repeat(mac_tx_str_len - tx_str.len());
-        let line = format!(
-            "{}:{} ↓ {}{}  ↑ {}{}",
-            itf_name,
-            name_pad,
-            rx_pad,
-            colorize_speed(itf_stats.rx_bps, itf_stats.line_bps, rx_str),
-            tx_pad,
-            colorize_speed(itf_stats.tx_bps, itf_stats.line_bps, tx_str)
-        );
-        lines.push(line);
+        Ok(())
     }
-
-    lines
 }
 
 #[cfg(test)]
@@ -214,7 +221,7 @@ mod tests {
 
     #[test]
     fn test_output_network_stats() {
-        let mut stats = NetworkStats::new();
+        let mut stats = BTreeMap::new();
         stats.insert(
             "i1".to_string(),
             InterfaceStats {
@@ -256,14 +263,8 @@ mod tests {
             },
         );
         assert_eq!(
-            output_network_stats(stats),
-            [
-                "i1:         ↓      1 b/s  ↑   1.2 Mb/s",
-                "interface2: ↓   1.2 Gb/s  ↑   1.2 kb/s",
-                "itf3:       ↓ 800.0 kb/s  ↑ \u{1b}[33m800.0 kb/s\u{1b}[0m",
-                "itf4:       ↓ \u{1b}[31m900.0 kb/s\u{1b}[0m  ↑ \u{1b}[33m900.0 kb/s\u{1b}[0m",
-                "itf5:       ↓ \u{1b}[31m900.0 Mb/s\u{1b}[0m  ↑ \u{1b}[33m800.0 Mb/s\u{1b}[0m"
-            ]
+            format!("{}", NetworkStats { interfaces: stats }),
+            "i1:         ↓      1 b/s  ↑   1.2 Mb/s\ninterface2: ↓   1.2 Gb/s  ↑   1.2 kb/s\nitf3:       ↓ 800.0 kb/s  ↑ \u{1b}[33m800.0 kb/s\u{1b}[0m\nitf4:       ↓ \u{1b}[31m900.0 kb/s\u{1b}[0m  ↑ \u{1b}[33m900.0 kb/s\u{1b}[0m\nitf5:       ↓ \u{1b}[31m900.0 Mb/s\u{1b}[0m  ↑ \u{1b}[33m800.0 Mb/s\u{1b}[0m\n"
         );
     }
 }

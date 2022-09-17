@@ -1,30 +1,37 @@
 use std::cmp;
 use std::collections::HashSet;
-use std::ffi::{CStr, CString};
+use std::ffi::{CStr, CString, OsStr};
+use std::fmt;
 use std::io;
 use std::mem;
+use std::os::unix::ffi::OsStrExt;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 
 use ansi_term::Colour::*;
 use ansi_term::Style;
 use libc::{endmntent, getmntent, setmntent, statvfs};
 
 use crate::fmt::format_kmgt;
+use crate::module::{ModuleData, TERM_COLUMNS};
 
 const MIN_FS_BAR_LEN: usize = 30;
 
 /// Information on a filesystem
-pub struct FsInfo {
-    mount_path: String,
+pub struct FsMountInfo {
+    mount_path: PathBuf,
     used_bytes: u64,
     total_bytes: u64,
 }
 
 /// Information on all filesystems
-pub type FsInfoVec = Vec<FsInfo>;
+pub struct FsInfo {
+    mounts: Vec<FsMountInfo>,
+}
 
 /// Fetch filesystem information for all filesystems
-pub fn get_fs_info() -> anyhow::Result<FsInfoVec> {
-    let mut fs_info = FsInfoVec::new();
+pub fn fetch() -> anyhow::Result<ModuleData> {
+    let mut mounts = Vec::new();
 
     // Open mount list file
     // Note: /etc/mtab is a symlink to /proc/self/mounts
@@ -40,21 +47,22 @@ pub fn get_fs_info() -> anyhow::Result<FsInfoVec> {
         if mount.is_null() {
             break;
         }
-        let mount_path;
+        let mount_path_raw;
         let fs_type;
         let fs_dev;
         unsafe {
-            mount_path = CStr::from_ptr((*mount).mnt_dir).to_str()?.to_string();
-            fs_type = CStr::from_ptr((*mount).mnt_type).to_str()?.to_string();
-            fs_dev = CStr::from_ptr((*mount).mnt_fsname).to_str()?.to_string();
+            mount_path_raw = CStr::from_ptr((*mount).mnt_dir);
+            fs_type = CStr::from_ptr((*mount).mnt_type).to_str()?;
+            fs_dev = CStr::from_ptr((*mount).mnt_fsname).to_str()?;
         }
+        let mount_path: &Path = OsStr::from_bytes(mount_path_raw.to_bytes()).as_ref();
 
         // Exclude some cases
         if (fs_type == "devtmpfs")
             || (fs_type == "autofs")
             || fs_type.starts_with("fuse.")
             || mount_path.starts_with("/dev/")
-            || (mount_path == "/run")
+            || (mount_path == PathBuf::from("/run"))
             || mount_path.starts_with("/run/")
             || mount_path.starts_with("/sys/")
             || mount_path.starts_with("/var/lib/dhcpcd/run/")
@@ -71,61 +79,60 @@ pub fn get_fs_info() -> anyhow::Result<FsInfoVec> {
         }
 
         // Get filesystem info
-        let mut new_fs_info = FsInfo {
-            mount_path,
-            used_bytes: 0,
-            total_bytes: 0,
-        };
-        new_fs_info = match fill_fs_info(new_fs_info) {
+        let mount_info = match fetch_mount_info(mount_path) {
             Ok(fsi) => fsi,
             Err(_) => continue,
         };
-        if new_fs_info.total_bytes == 0 {
+        if mount_info.total_bytes == 0 {
             // procfs, sysfs...
             continue;
         }
-        fs_info.push(new_fs_info);
+        mounts.push(mount_info);
     }
 
     // Close mount list file
     unsafe { endmntent(mount_file) }; // endmntent always returns 1
 
-    fs_info.sort_by(|a, b| a.mount_path.cmp(&b.mount_path));
+    mounts.sort_by(|a, b| a.mount_path.cmp(&b.mount_path));
 
-    Ok(fs_info)
+    Ok(ModuleData::Fs(FsInfo { mounts }))
 }
 
 /// Fetch detailed filesystem information
-fn fill_fs_info(fs_info: FsInfo) -> Result<FsInfo, io::Error> {
+fn fetch_mount_info(mount_path: &Path) -> Result<FsMountInfo, io::Error> {
     let mut fs_stat: statvfs = unsafe { mem::zeroed() };
-    let mount_point = CString::new(fs_info.mount_path.to_owned())?;
+    let mount_point = CString::new(mount_path.as_os_str().as_bytes())?;
     let rc = unsafe { statvfs(mount_point.as_ptr(), &mut fs_stat) };
     if rc != 0 {
         return Err(io::Error::last_os_error());
     }
 
-    let mut fs_info = fs_info;
-    fs_info.total_bytes = fs_stat.f_blocks * fs_stat.f_bsize;
-    fs_info.used_bytes = fs_info.total_bytes - fs_stat.f_bfree * fs_stat.f_bsize;
+    let total_bytes = fs_stat.f_blocks * fs_stat.f_bsize;
+    let used_bytes = total_bytes - fs_stat.f_bfree * fs_stat.f_bsize;
 
-    Ok(fs_info)
+    Ok(FsMountInfo {
+        total_bytes,
+        used_bytes,
+        mount_path: mount_path.to_path_buf(),
+    })
 }
 
 /// Generate a bar to represent filesystem usage
-pub fn get_fs_bar(fs_info: &FsInfo, length: usize, style: Style) -> String {
+pub fn get_fs_bar(mount_info: &FsMountInfo, length: usize, style: Style) -> String {
     assert!(length >= MIN_FS_BAR_LEN);
 
     let bar_text = format!(
         "{} / {} ({:.1}%)",
-        format_kmgt(fs_info.used_bytes, "B"),
-        format_kmgt(fs_info.total_bytes, "B"),
-        100.0 * fs_info.used_bytes as f32 / fs_info.total_bytes as f32
+        format_kmgt(mount_info.used_bytes, "B"),
+        format_kmgt(mount_info.total_bytes, "B"),
+        100.0 * mount_info.used_bytes as f32 / mount_info.total_bytes as f32
     );
 
     // Center bar text inside fill chars
     let bar_text_len = bar_text.len();
     let fill_count_before = (length - 2 - bar_text_len) / 2;
-    let chars_used = ((length - 2) as u64 * fs_info.used_bytes / fs_info.total_bytes) as usize;
+    let chars_used =
+        ((length - 2) as u64 * mount_info.used_bytes / mount_info.total_bytes) as usize;
 
     let bar_char = '█';
 
@@ -163,83 +170,99 @@ fn ellipsis(s: &str, max_len: usize) -> String {
     }
 }
 
-/// Output filesystem information
-pub fn output_fs_info(fs_info: FsInfoVec, term_width: usize) -> Vec<String> {
-    let term_width = cmp::max(term_width, MIN_FS_BAR_LEN + 3);
-    let path_max_len = term_width - 1 - MIN_FS_BAR_LEN;
+impl fmt::Display for FsInfo {
+    /// Output filesystem information
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let term_width = cmp::max(TERM_COLUMNS.load(Ordering::SeqCst), MIN_FS_BAR_LEN + 3);
+        let path_max_len = term_width - 1 - MIN_FS_BAR_LEN;
 
-    let mut lines: Vec<String> = Vec::new();
+        let pretty_mount_paths: Vec<String> = self
+            .mounts
+            .iter()
+            .map(|x| {
+                Ok(ellipsis(
+                    x.mount_path
+                        .to_str()
+                        .ok_or_else(|| anyhow::anyhow!("Unable to decode mount point"))?,
+                    path_max_len,
+                ))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()
+            .map_err(|_| fmt::Error)?;
+        let max_path_len = pretty_mount_paths
+            .iter()
+            .map(|x| x.chars().count())
+            .max()
+            .unwrap();
 
-    let max_path_len = fs_info
-        .iter()
-        .map(|x| ellipsis(&x.mount_path, path_max_len).chars().count())
-        .max()
-        .unwrap();
+        for (mount_info, pretty_mount_path) in self.mounts.iter().zip(pretty_mount_paths) {
+            let fs_usage = mount_info.used_bytes as f32 / mount_info.total_bytes as f32;
+            let text_style = if fs_usage >= 0.95 {
+                Red.normal()
+            } else if fs_usage >= 0.85 {
+                Yellow.normal()
+            } else {
+                Style::new()
+            };
 
-    for cur_fs_info in fs_info {
-        let text_style;
-        let fs_usage = cur_fs_info.used_bytes as f32 / cur_fs_info.total_bytes as f32;
-        if fs_usage >= 0.95 {
-            text_style = Red.normal();
-        } else if fs_usage >= 0.85 {
-            text_style = Yellow.normal();
-        } else {
-            text_style = Style::new();
+            writeln!(
+                f,
+                "{}{} {}",
+                text_style.paint(&pretty_mount_path),
+                text_style.paint(" ".repeat(max_path_len - pretty_mount_path.chars().count())),
+                get_fs_bar(
+                    mount_info,
+                    cmp::max(term_width - max_path_len - 1, MIN_FS_BAR_LEN),
+                    text_style
+                )
+            )?;
         }
 
-        let pretty_mount_path = ellipsis(&cur_fs_info.mount_path, path_max_len);
-        lines.push(format!(
-            "{}{} {}",
-            text_style.paint(&pretty_mount_path),
-            text_style.paint(" ".repeat(max_path_len - pretty_mount_path.chars().count())),
-            get_fs_bar(
-                &cur_fs_info,
-                cmp::max(term_width - max_path_len - 1, MIN_FS_BAR_LEN),
-                text_style
-            )
-        ));
+        Ok(())
     }
-
-    lines
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use crate::module;
+
     #[test]
     fn test_output_fs_info() {
+        module::TERM_COLUMNS.store(40, Ordering::SeqCst);
         assert_eq!(
-            output_fs_info(
-                vec![
-                    FsInfo {
-                        mount_path: "/foo/bar".to_string(),
-                        used_bytes: 234560,
-                        total_bytes: 7891011
-                    },
-                    FsInfo {
-                        mount_path: "/foo/baz".to_string(),
-                        used_bytes: 2345600000,
-                        total_bytes: 7891011000
-                    }
-                ],
-                60
+            format!(
+                "{}",
+                FsInfo {
+                    mounts: vec![
+                        FsMountInfo {
+                            mount_path: PathBuf::from("/foo/bar"),
+                            used_bytes: 234560,
+                            total_bytes: 7891011
+                        },
+                        FsMountInfo {
+                            mount_path: PathBuf::from("/foo/baz"),
+                            used_bytes: 2345600000,
+                            total_bytes: 7891011000
+                        }
+                    ]
+                },
             ),
-            [
-                "/foo/bar ▕█           \u{1b}[7m\u{1b}[0m229.1 KB / 7.5 MB (3.0%)             ▏",
-                "/foo/baz ▕█████████████\u{1b}[7m2\u{1b}[0m.2 GB / 7.3 GB (29.7%)             ▏"
-            ]
+            "/foo/bar ▕  \u{1b}[7m\u{1b}[0m229.1 KB / 7.5 MB (3.0%)   ▏\n/foo/baz ▕███\u{1b}[7m2.2 G\u{1b}[0mB / 7.3 GB (29.7%)   ▏\n"
         );
         assert_eq!(
-            output_fs_info(
-                vec![FsInfo {
-                    mount_path: "/0123456789".to_string(),
-                    used_bytes: 500,
-                    total_bytes: 1000
-                },],
-                40
+            format!(
+                "{}",
+                FsInfo {
+                    mounts: vec![FsMountInfo {
+                        mount_path: PathBuf::from("/0123456789"),
+                        used_bytes: 500,
+                        total_bytes: 1000
+                    },]
+                },
             ),
-            ["/0123456… ▕███\u{1b}[7m500 B / 100\u{1b}[0m0 B (50.0%)   ▏"]
+            "/0123456… ▕███\u{1b}[7m500 B / 100\u{1b}[0m0 B (50.0%)   ▏\n"
         );
     }
 
@@ -247,8 +270,8 @@ mod tests {
     fn test_get_fs_bar() {
         assert_eq!(
             get_fs_bar(
-                &FsInfo{
-                    mount_path: "/foo/bar".to_string(),
+                &FsMountInfo{
+                    mount_path: PathBuf::from("/foo/bar"),
                     used_bytes: 23456,
                     total_bytes: 7891011
                 },
@@ -259,8 +282,8 @@ mod tests {
         );
         assert_eq!(
             get_fs_bar(
-                &FsInfo {
-                    mount_path: "/foo/bar".to_string(),
+                &FsMountInfo {
+                    mount_path: PathBuf::from("/foo/bar"),
                     used_bytes: 0,
                     total_bytes: 7891011
                 },
@@ -271,8 +294,8 @@ mod tests {
         );
         assert_eq!(
             get_fs_bar(
-                &FsInfo {
-                    mount_path: "/foo/bar".to_string(),
+                &FsMountInfo {
+                    mount_path: PathBuf::from("/foo/bar"),
                     used_bytes: 434560,
                     total_bytes: 7891011
                 },
@@ -283,8 +306,8 @@ mod tests {
         );
         assert_eq!(
             get_fs_bar(
-                &FsInfo {
-                    mount_path: "/foo/bar".to_string(),
+                &FsMountInfo {
+                    mount_path: PathBuf::from("/foo/bar"),
                     used_bytes: 4891011000,
                     total_bytes: 7891011000
                 },
@@ -295,8 +318,8 @@ mod tests {
         );
         assert_eq!(
             get_fs_bar(
-                &FsInfo {
-                    mount_path: "/foo/bar".to_string(),
+                &FsMountInfo {
+                    mount_path: PathBuf::from("/foo/bar"),
                     used_bytes: 4891011000,
                     total_bytes: 7891011000
                 },
@@ -307,8 +330,8 @@ mod tests {
         );
         assert_eq!(
             get_fs_bar(
-                &FsInfo {
-                    mount_path: "/foo/bar".to_string(),
+                &FsMountInfo {
+                    mount_path: PathBuf::from("/foo/bar"),
                     used_bytes: 4891011000,
                     total_bytes: 7891011000
                 },
@@ -319,8 +342,8 @@ mod tests {
         );
         assert_eq!(
             get_fs_bar(
-                &FsInfo {
-                    mount_path: "/foo/bar".to_string(),
+                &FsMountInfo {
+                    mount_path: PathBuf::from("/foo/bar"),
                     used_bytes: 6891011000000,
                     total_bytes: 7891011000000
                 },
@@ -331,8 +354,8 @@ mod tests {
         );
         assert_eq!(
             get_fs_bar(
-                &FsInfo {
-                    mount_path: "/foo/bar".to_string(),
+                &FsMountInfo {
+                    mount_path: PathBuf::from("/foo/bar"),
                     used_bytes: 7891011000000,
                     total_bytes: 7891011000000
                 },

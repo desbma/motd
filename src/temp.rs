@@ -1,5 +1,6 @@
 use std::cmp;
 use std::collections::HashSet;
+use std::fmt;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::net::TcpStream;
@@ -8,6 +9,8 @@ use std::str::FromStr;
 
 use ansi_term::Colour::*;
 use glob::glob;
+
+use crate::ModuleData;
 
 /// Type of temperature sensor
 enum SensorType {
@@ -35,7 +38,9 @@ pub struct SensorTemp {
 }
 
 /// Deque of fetched temperature data
-pub type TempDeque = Vec<SensorTemp>;
+pub struct HardwareTemps {
+    temps: Vec<SensorTemp>,
+}
 
 /// Read temperature from a given hwmon sysfs file
 fn read_sysfs_temp_value(filepath: &Path) -> anyhow::Result<Option<u32>> {
@@ -55,9 +60,15 @@ fn read_sysfs_temp_value(filepath: &Path) -> anyhow::Result<Option<u32>> {
     Ok(Some(temp_val as u32))
 }
 
-/// Probe temperatures from hwmon Linux sensors exposed in /sys/class/hwmon/
-pub fn get_hwmon_temps() -> anyhow::Result<TempDeque> {
+/// Probe temperatures from hwmon Linux sensors
+pub fn fetch() -> anyhow::Result<ModuleData> {
     let mut temps = Vec::new();
+
+    // Hwmon sensors
+
+    // TODO this takes 8-10ms and probably could use some optimizing
+
+    // TODO support drivetemp
 
     // Totally incomplete and arbitary list of sensor names to blacklist
     // = those that return invalid values on motherboards I own
@@ -171,7 +182,38 @@ pub fn get_hwmon_temps() -> anyhow::Result<TempDeque> {
         }
     }
 
-    Ok(temps)
+    // HDD temps
+
+    // Connect
+    if let Ok(mut stream) = TcpStream::connect("127.0.0.1:7634") {
+        // TODO port const
+        // Read
+        let mut data = String::new();
+        stream.read_to_string(&mut data)?;
+
+        // Parse
+        let drives_data: Vec<&str> = data.split('|').collect();
+        for drive_data in drives_data.chunks_exact(5) {
+            let drive_path = normalize_drive_path(&PathBuf::from(drive_data[1]))?;
+            let pretty_name = drive_data[2];
+            let temp = match u32::from_str(drive_data[3]) {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+
+            // Store temp
+            let sensor_temp = SensorTemp {
+                name: format!("{} ({})", drive_path.to_str().unwrap(), pretty_name),
+                sensor_type: SensorType::Drive,
+                temp,
+                temp_warning: 45,
+                temp_critical: 55,
+            };
+            temps.push(sensor_temp);
+        }
+    }
+
+    Ok(ModuleData::HardwareTemps(HardwareTemps { temps }))
 }
 
 /// Normalize a drive device path by making it absolute and following links
@@ -193,45 +235,6 @@ fn normalize_drive_path(path: &Path) -> anyhow::Result<PathBuf> {
     Ok(path_string)
 }
 
-/// Probe drive temperatures from hddtemp daemon
-pub fn get_drive_temps() -> anyhow::Result<TempDeque> {
-    let mut temps = Vec::new();
-
-    // Connect
-    let mut stream = match TcpStream::connect("127.0.0.1:7634") {
-        // TODO port const
-        Ok(s) => s,
-        Err(_) => return Ok(temps),
-    };
-
-    // Read
-    let mut data = String::new();
-    stream.read_to_string(&mut data)?;
-
-    // Parse
-    let drives_data: Vec<&str> = data.split('|').collect();
-    for drive_data in drives_data.chunks_exact(5) {
-        let drive_path = normalize_drive_path(&PathBuf::from(drive_data[1]))?;
-        let pretty_name = drive_data[2];
-        let temp = match u32::from_str(drive_data[3]) {
-            Ok(t) => t,
-            Err(_) => continue,
-        };
-
-        // Store temp
-        let sensor_temp = SensorTemp {
-            name: format!("{} ({})", drive_path.to_str().unwrap(), pretty_name),
-            sensor_type: SensorType::Drive,
-            temp,
-            temp_warning: 45,
-            temp_critical: 55,
-        };
-        temps.push(sensor_temp);
-    }
-
-    Ok(temps)
-}
-
 /// Colorize a string for terminal display according to temperature level
 fn colorize_from_temp(string: String, temp: u32, temp_warning: u32, temp_critical: u32) -> String {
     if temp >= temp_critical {
@@ -243,23 +246,27 @@ fn colorize_from_temp(string: String, temp: u32, temp_warning: u32, temp_critica
     }
 }
 
-/// Output all temperatures
-pub fn output_temps(temps: TempDeque) -> Vec<String> {
-    let mut lines: Vec<String> = Vec::new();
+impl fmt::Display for HardwareTemps {
+    /// Output all temperatures
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let max_name_len = self.temps.iter().map(|x| x.name.len()).max();
+        for sensor_temp in &self.temps {
+            let pad = " ".repeat(max_name_len.unwrap() - sensor_temp.name.len());
+            let line = format!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
+            writeln!(
+                f,
+                "{}",
+                colorize_from_temp(
+                    line,
+                    sensor_temp.temp,
+                    sensor_temp.temp_warning,
+                    sensor_temp.temp_critical,
+                )
+            )?;
+        }
 
-    let max_name_len = temps.iter().map(|x| x.name.len()).max();
-    for sensor_temp in temps {
-        let pad = " ".repeat(max_name_len.unwrap() - sensor_temp.name.len());
-        let line = format!("{}: {}{} °C", sensor_temp.name, pad, sensor_temp.temp);
-        lines.push(colorize_from_temp(
-            line,
-            sensor_temp.temp,
-            sensor_temp.temp_warning,
-            sensor_temp.temp_critical,
-        ));
+        Ok(())
     }
-
-    lines
 }
 
 #[cfg(test)]
@@ -269,34 +276,35 @@ mod tests {
     #[test]
     fn test_output_temps() {
         assert_eq!(
-            output_temps(vec![
-                SensorTemp {
-                    name: "sensor1".to_string(),
-                    sensor_type: SensorType::Cpu,
-                    temp: 95,
-                    temp_warning: 70,
-                    temp_critical: 80
-                },
-                SensorTemp {
-                    name: "sensor222222222".to_string(),
-                    sensor_type: SensorType::Drive,
-                    temp: 40,
-                    temp_warning: 70,
-                    temp_critical: 80
-                },
-                SensorTemp {
-                    name: "sensor333".to_string(),
-                    sensor_type: SensorType::Other,
-                    temp: 50,
-                    temp_warning: 45,
-                    temp_critical: 60
+            format!(
+                "{}",
+                HardwareTemps {
+                    temps: vec![
+                        SensorTemp {
+                            name: "sensor1".to_string(),
+                            sensor_type: SensorType::Cpu,
+                            temp: 95,
+                            temp_warning: 70,
+                            temp_critical: 80
+                        },
+                        SensorTemp {
+                            name: "sensor222222222".to_string(),
+                            sensor_type: SensorType::Drive,
+                            temp: 40,
+                            temp_warning: 70,
+                            temp_critical: 80
+                        },
+                        SensorTemp {
+                            name: "sensor333".to_string(),
+                            sensor_type: SensorType::Other,
+                            temp: 50,
+                            temp_warning: 45,
+                            temp_critical: 60
+                        }
+                    ]
                 }
-            ]),
-            [
-                "\u{1b}[31msensor1:         95 °C\u{1b}[0m",
-                "sensor222222222: 40 °C",
-                "\u{1b}[33msensor333:       50 °C\u{1b}[0m"
-            ]
+            ),
+            "\u{1b}[31msensor1:         95 °C\u{1b}[0m\nsensor222222222: 40 °C\n\u{1b}[33msensor333:       50 °C\u{1b}[0m\n"
         );
     }
 

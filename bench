@@ -1,0 +1,10 @@
+#!/bin/bash -eu
+
+cargo build --release
+
+for section in {l,m,s,f,t,u,n}
+do
+    hyperfine "./target/release/motd -s ${section}"
+done
+
+hyperfine "./target/release/motd -s l,m,s,f,t,u,n"

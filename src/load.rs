@@ -1,10 +1,15 @@
+use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
 use std::str::FromStr;
+use std::sync::atomic::Ordering;
 
 use ansi_term::Colour::*;
 
+use crate::module::{ModuleData, CPU_COUNT};
+
 /// Names of failed Systemd units
+#[derive(Debug)]
 pub struct LoadInfo {
     /// Load average 1 minute
     load_avg_1m: f32,
@@ -17,36 +22,29 @@ pub struct LoadInfo {
 }
 
 /// Fetch load information from /proc/loadavg
-pub fn get_load_info() -> anyhow::Result<LoadInfo> {
-    let mut load_info = LoadInfo {
-        load_avg_1m: 0.0,
-        load_avg_5m: 0.0,
-        load_avg_15m: 0.0,
-        task_count: 0,
-    };
-
+pub fn fetch() -> anyhow::Result<ModuleData> {
     let mut file = File::open("/proc/loadavg")?;
     let mut line = String::new();
     file.read_to_string(&mut line)?;
 
     let mut tokens_it = line.split(' ');
-    load_info.load_avg_1m = f32::from_str(
+    let load_avg_1m = f32::from_str(
         tokens_it
             .next()
             .ok_or_else(|| anyhow::anyhow!("Failed to parse load average 1m"))?,
     )?;
-    load_info.load_avg_5m = f32::from_str(
+    let load_avg_5m = f32::from_str(
         tokens_it
             .next()
             .ok_or_else(|| anyhow::anyhow!("Failed to parse load average 5m"))?,
     )?;
-    load_info.load_avg_15m = f32::from_str(
+    let load_avg_15m = f32::from_str(
         tokens_it
             .next()
             .ok_or_else(|| anyhow::anyhow!("Failed to parse load average 15m"))?,
     )?;
 
-    load_info.task_count = u32::from_str(
+    let task_count = u32::from_str(
         tokens_it
             .next()
             .ok_or_else(|| anyhow::anyhow!("Failed to parse task count"))?
@@ -55,7 +53,27 @@ pub fn get_load_info() -> anyhow::Result<LoadInfo> {
             .ok_or_else(|| anyhow::anyhow!("Failed to parse task count"))?,
     )?;
 
-    Ok(load_info)
+    Ok(ModuleData::Load(LoadInfo {
+        load_avg_1m,
+        load_avg_5m,
+        load_avg_15m,
+        task_count,
+    }))
+}
+
+impl fmt::Display for LoadInfo {
+    /// Output load information
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let cpu_count = CPU_COUNT.load(Ordering::SeqCst);
+        writeln!(
+            f,
+            "Load avg 1min: {}, 5 min: {}, 15 min: {}",
+            colorize_load(self.load_avg_1m, cpu_count),
+            colorize_load(self.load_avg_5m, cpu_count),
+            colorize_load(self.load_avg_15m, cpu_count)
+        )?;
+        writeln!(f, "Tasks: {}", self.task_count)
+    }
 }
 
 /// Colorize load string
@@ -69,46 +87,26 @@ fn colorize_load(load: f32, cpu_count: usize) -> String {
     }
 }
 
-/// Output load information
-pub fn output_load_info(load_info: LoadInfo, default_cpu_count: usize) -> Vec<String> {
-    let mut lines: Vec<String> = Vec::new();
-
-    let cpu_count = if default_cpu_count == 0 {
-        num_cpus::get()
-    } else {
-        default_cpu_count
-    };
-    lines.push(format!(
-        "Load avg 1min: {}, 5 min: {}, 15 min: {}",
-        colorize_load(load_info.load_avg_1m, cpu_count),
-        colorize_load(load_info.load_avg_5m, cpu_count),
-        colorize_load(load_info.load_avg_15m, cpu_count)
-    ));
-    lines.push(format!("Tasks: {}", load_info.task_count));
-
-    lines
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use crate::module;
+
     #[test]
     fn test_output_load_info() {
+        module::CPU_COUNT.store(3, Ordering::SeqCst);
         assert_eq!(
-            output_load_info(
+            format!(
+                "{}",
                 LoadInfo {
                     load_avg_1m: 1.1,
                     load_avg_5m: 2.9,
                     load_avg_15m: 3.1,
-                    task_count: 12345
+                    task_count: 12345,
                 },
-                3
             ),
-            [
-                "Load avg 1min: 1.1, 5 min: \u{1b}[33m2.9\u{1b}[0m, 15 min: \u{1b}[31m3.1\u{1b}[0m",
-                "Tasks: 12345"
-            ]
+            "Load avg 1min: 1.1, 5 min: \u{1b}[33m2.9\u{1b}[0m, 15 min: \u{1b}[31m3.1\u{1b}[0m\nTasks: 12345\n"
         );
     }
 
