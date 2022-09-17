@@ -2,7 +2,7 @@
 name = "motd"
 version = "1.1.4"
 authors = ["desbma <desbma@users.noreply.github.com>"]
-edition = "2018"
+edition = "2021"
 
 [profile.release]
 lto = true
@@ -11,11 +11,11 @@ panic = "abort"
 strip = true
 
 [dependencies]
-ansi_term = "~0.12"
-clap = "~2"
-glob = "~0.3"
-itertools = "~0.8"
-libc = "~0.2"
-num_cpus = "~1.11"
-simple-error = "0.2"
-termsize = "~0.1"
+ansi_term = { version = "0.12.1", default-features = false }
+clap =  { version = "2.34.0", default-features = false, features = ["color"] }
+glob =  { version = "0.3", default-features = false }
+itertools =  "0.8"
+libc =  { version = "0.2", default-features = false }
+num_cpus =  { version = "1.11", default-features = false }
+simple-error =  { version = "0.2", default-features = false }
+termsize =  { version = "0.1", default-features = false }
