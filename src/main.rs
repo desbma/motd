@@ -136,8 +136,8 @@ fn letter_to_section(letter: &str) -> Section {
 }
 
 /// Validate a isize integer string for Clap usage
-fn validator_isize(s: String) -> Result<(), String> {
-    match isize::from_str(&s) {
+fn validator_isize(s: &str) -> Result<(), String> {
+    match isize::from_str(s) {
         Ok(_) => Ok(()),
         Err(_) => Err("Not a valid integer value".to_string()),
     }
@@ -169,7 +169,7 @@ fn parse_cl_args() -> CLArgs {
         .author("desbma")
         .arg(
             Arg::with_name("SECTIONS")
-                .short("s")
+                .short('s')
                 .long("sections")
                 .takes_value(true)
                 .multiple(true)
@@ -189,13 +189,13 @@ fn parse_cl_args() -> CLArgs {
         )
         .arg(
             Arg::with_name("NO_TITLES")
-                .short("n")
+                .short('n')
                 .long("no-titles")
                 .help("Do not display section titles."),
         )
         .arg(
             Arg::with_name("COLUMNS")
-                .short("c")
+                .short('c')
                 .long("columns")
                 .takes_value(true)
                 .allow_hyphen_values(true)
