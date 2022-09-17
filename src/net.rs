@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::error;
 use std::fs;
 use std::fs::{DirEntry, File};
 use std::io::{Read, Seek, SeekFrom};
@@ -45,7 +44,7 @@ const MIN_DELAY_BETWEEN_NET_SAMPLES_MS: u64 = 30;
 fn read_interface_stats(
     rx_bytes_file: &mut File,
     tx_bytes_file: &mut File,
-) -> Result<(u64, u64, Instant), Box<dyn error::Error>> {
+) -> anyhow::Result<(u64, u64, Instant)> {
     let mut rx_str = String::new();
     rx_bytes_file.read_to_string(&mut rx_str)?;
     let rx_bytes = rx_str.trim_end().parse::<u64>()?;
@@ -58,7 +57,7 @@ fn read_interface_stats(
 }
 
 /// Get network stats first sample
-pub fn get_network_stats() -> Result<NetworkPendingStats, Box<dyn error::Error>> {
+pub fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
     let mut stats: NetworkPendingStats = NetworkPendingStats::new();
 
     let mut dir_entries: Vec<DirEntry> = fs::read_dir("/sys/class/net")?
@@ -118,7 +117,7 @@ pub fn get_network_stats() -> Result<NetworkPendingStats, Box<dyn error::Error>>
 /// Get network stats second sample and build interface stats
 pub fn update_network_stats(
     pending_stats: &mut NetworkPendingStats,
-) -> Result<NetworkStats, Box<dyn error::Error>> {
+) -> anyhow::Result<NetworkStats> {
     let mut stats: NetworkStats = NetworkStats::new();
 
     for (itf_name, pending_itf_stats) in pending_stats.iter_mut() {

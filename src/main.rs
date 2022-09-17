@@ -54,7 +54,7 @@ fn output_title(title: &str, columns: usize, new_line: bool) {
 }
 
 /// Output lines to stdout
-fn output_lines(lines: Vec<String>) {
+fn output_lines(lines: &[String]) {
     for line in lines {
         println!("{}", line);
     }
@@ -63,8 +63,8 @@ fn output_lines(lines: Vec<String>) {
 /// Output section title and lines
 fn output_section(
     title: &str,
-    lines: Option<Result<Vec<String>, String>>,
-    lines_rx: Option<&mpsc::Receiver<Result<Vec<String>, String>>>,
+    lines: Option<anyhow::Result<Vec<String>>>,
+    lines_rx: Option<&mpsc::Receiver<anyhow::Result<Vec<String>>>>,
     show_title: bool,
     first_section: bool,
     columns: usize,
@@ -93,7 +93,7 @@ fn output_section(
                     println!();
                 }
 
-                output_lines(lines);
+                output_lines(&lines);
             }
         }
         Err(err) => {
@@ -253,7 +253,7 @@ fn main() -> anyhow::Result<()> {
     let cl_args = parse_cl_args();
 
     // Fetch network stats in a background thread if needed
-    let mut network_lines_rx: Option<mpsc::Receiver<Result<Vec<String>, String>>> = None;
+    let mut network_lines_rx: Option<mpsc::Receiver<anyhow::Result<Vec<String>>>> = None;
     let network_lines_needed_sync = Arc::new((Mutex::new(false), Condvar::new()));
     let network_lines_needed_sync2 = network_lines_needed_sync.clone();
     let (network_lines_needed_mutex, network_lines_needed_cv) = &*network_lines_needed_sync;
@@ -283,12 +283,9 @@ fn main() -> anyhow::Result<()> {
                         let network_stats = net::update_network_stats(&mut network_stats_sample);
 
                         // Format them to lines
-                        network_stats
-                            .map(net::output_network_stats)
-                            // Also format error to String to pass it in channel
-                            .map_err(|e| e.to_string())
+                        network_stats.map(net::output_network_stats)
                     }
-                    Err(e) => Err(e.to_string()),
+                    Err(e) => Err(e),
                 };
 
                 // Send them to main thread
@@ -298,7 +295,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Fetch systemd failed units in a background thread if needed
-    let mut unit_lines_rx: Option<mpsc::Receiver<Result<Vec<String>, String>>> = None;
+    let mut unit_lines_rx: Option<mpsc::Receiver<anyhow::Result<Vec<String>>>> = None;
     if cl_args.sections.contains(&Section::SDFailedUnits)
         && (*cl_args.sections.first().unwrap() != Section::SDFailedUnits)
     {
@@ -312,10 +309,7 @@ fn main() -> anyhow::Result<()> {
                     let failed_units = systemd::get_failed_units(systemd_mode);
 
                     // Format them to lines
-                    let lines = failed_units
-                        .map(systemd::output_failed_units)
-                        // Also format error to String to pass it in channel
-                        .map_err(|e| e.to_string());
+                    let lines = failed_units.map(systemd::output_failed_units);
 
                     // Send them to main thread
                     chan_tx.send(lines).unwrap();
@@ -325,7 +319,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Fetch temps in a background thread if needed
-    let mut temp_lines_rx: Option<mpsc::Receiver<Result<Vec<String>, String>>> = None;
+    let mut temp_lines_rx: Option<mpsc::Receiver<anyhow::Result<Vec<String>>>> = None;
     if cl_args.sections.contains(&Section::Temps)
         && (*cl_args.sections.first().unwrap() != Section::Temps)
     {
@@ -347,10 +341,7 @@ fn main() -> anyhow::Result<()> {
                 };
 
                 // Format them to lines
-                let lines = temps
-                    .map(temp::output_temps)
-                    // Also format error to String to pass it in channel
-                    .map_err(|e| e.to_string());
+                let lines = temps.map(temp::output_temps);
 
                 // Send them to main thread
                 chan_tx.send(lines).unwrap();
@@ -358,7 +349,7 @@ fn main() -> anyhow::Result<()> {
             .unwrap();
     }
 
-    let mut mem_info: Option<Result<mem::MemInfo, String>> = None;
+    let mut mem_info: Option<anyhow::Result<mem::MemInfo>> = None;
 
     let first_section = cl_args.sections.first().unwrap();
 
@@ -366,7 +357,7 @@ fn main() -> anyhow::Result<()> {
         match section {
             Section::Load => {
                 // Load info
-                let load_info = load::get_load_info().map_err(|e| e.to_string());
+                let load_info = load::get_load_info();
                 let lines = load_info.map(|l| load::output_load_info(l, 0));
                 output_section(
                     "Load",
@@ -380,10 +371,11 @@ fn main() -> anyhow::Result<()> {
 
             Section::Mem => {
                 // Memory usage
-                let lines = mem_info
-                    .get_or_insert_with(|| mem::get_mem_info().map_err(|e| e.to_string()))
-                    .clone()
-                    .map(|m: mem::MemInfo| mem::output_mem(&m, cl_args.term_columns));
+                let lines: anyhow::Result<Vec<String>> =
+                    match mem_info.get_or_insert_with(mem::get_mem_info) {
+                        Ok(mi) => Ok(mem::output_mem(mi, cl_args.term_columns)),
+                        Err(e) => anyhow::bail!("{}", e),
+                    };
                 output_section(
                     "Memory usage",
                     Some(lines),
@@ -396,10 +388,11 @@ fn main() -> anyhow::Result<()> {
 
             Section::Swap => {
                 // Swap usage
-                let lines = mem_info
-                    .get_or_insert_with(|| mem::get_mem_info().map_err(|e| e.to_string()))
-                    .clone()
-                    .map(|m: mem::MemInfo| mem::output_swap(&m, cl_args.term_columns));
+                let lines: anyhow::Result<Vec<String>> =
+                    match mem_info.get_or_insert_with(mem::get_mem_info) {
+                        Ok(mi) => Ok(mem::output_swap(mi, cl_args.term_columns)),
+                        Err(e) => anyhow::bail!("{}", e),
+                    };
                 output_section(
                     "Swap",
                     Some(lines),
@@ -412,7 +405,7 @@ fn main() -> anyhow::Result<()> {
 
             Section::FS => {
                 // Filesystem info
-                let fs_info = fs::get_fs_info().map_err(|e| e.to_string());
+                let fs_info = fs::get_fs_info();
                 let lines = fs_info.map(|f| fs::output_fs_info(f, cl_args.term_columns));
                 output_section(
                     "Filesystem usage",
@@ -429,14 +422,14 @@ fn main() -> anyhow::Result<()> {
                 let lines = match temp_lines_rx {
                     None => {
                         // Get temps
-                        let mut temps = temp::get_hwmon_temps().map_err(|e| e.to_string());
+                        let mut temps = temp::get_hwmon_temps();
                         if let Ok(ref mut hwmon_temps) = temps {
                             match temp::get_drive_temps() {
                                 Ok(drive_temps) => {
                                     hwmon_temps.extend(drive_temps);
                                 }
                                 Err(err) => {
-                                    temps = Err(err.to_string());
+                                    temps = Err(err);
                                 }
                             }
                         }
@@ -465,9 +458,8 @@ fn main() -> anyhow::Result<()> {
                         let network_stats = match network_stats_sample {
                             Ok(mut network_stats_sample) => {
                                 net::update_network_stats(&mut network_stats_sample)
-                                    .map_err(|e| e.to_string())
                             }
-                            Err(e) => Err(e.to_string()),
+                            Err(e) => Err(e),
                         };
 
                         // Format them to lines
@@ -499,8 +491,7 @@ fn main() -> anyhow::Result<()> {
                     let lines = match unit_lines_rx {
                         None => {
                             // Get systemd failed units
-                            let failed_units =
-                                systemd::get_failed_units(systemd_mode).map_err(|e| e.to_string());
+                            let failed_units = systemd::get_failed_units(systemd_mode);
 
                             // Format them to lines
                             Some(failed_units.map(systemd::output_failed_units))
