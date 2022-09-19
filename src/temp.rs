@@ -8,7 +8,6 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use ansi_term::Colour::*;
-use glob::glob;
 
 use crate::ModuleData;
 
@@ -68,118 +67,131 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
 
     // TODO this takes 8-10ms and probably could use some optimizing
 
-    // TODO support drivetemp
-
     // Totally incomplete and arbitary list of sensor names to blacklist
     // = those that return invalid values on motherboards I own
     let mut label_blacklist: HashSet<String> = HashSet::new();
     label_blacklist.insert("SYSTIN".to_string());
     label_blacklist.insert("CPUTIN".to_string());
 
-    for hwmon_entry in glob("/sys/class/hwmon/hwmon*")? {
-        let hwmon_dir = hwmon_entry?
-            .into_os_string()
-            .into_string()
-            .map_err(|_| anyhow::anyhow!("Failed to convert OS string"))?;
-        let label_pattern = format!("{}/temp*_label", hwmon_dir);
-        for label_entry in glob(&label_pattern).unwrap() {
-            // Read sensor name
-            let input_label_filepath = label_entry?;
+    let re = regex::Regex::new(r"/sys/class/hwmon/hwmon[0-9]+/temp[0-9]+_input").unwrap();
+
+    for input_temp_filepath in walkdir::WalkDir::new("/sys/class/hwmon")
+        .follow_links(true)
+        .min_depth(2)
+        .max_depth(2)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .map(|e| e.into_path())
+        .filter(|p| re.is_match(p.to_str().unwrap()))
+    {
+        let input_temp_filepath_str = input_temp_filepath.to_str().unwrap();
+        let filepath_prefix =
+            input_temp_filepath_str[..input_temp_filepath_str.len() - 6].to_owned();
+
+        // Read sensor name
+        let label_filepath = PathBuf::from(&format!("{}_label", filepath_prefix));
+        let label = if label_filepath.is_file() {
             let mut label = String::new();
-            let mut input_label_file = File::open(&input_label_filepath)?;
+            let mut input_label_file = File::open(&label_filepath)?;
             input_label_file.read_to_string(&mut label)?;
             label = label.trim_end().to_string();
             if label_blacklist.contains(&label) {
                 // Label in blacklist, exclude
                 continue;
             }
+            Some(label)
+        } else {
+            None
+        };
 
-            // Deduce type from name
-            let sensor_type = if label.starts_with("CPU ") || label.starts_with("Core ") {
+        // Deduce type from name
+        let sensor_type = if let Some(label) = label.as_ref() {
+            if label.starts_with("CPU ") || label.starts_with("Core ") {
                 SensorType::Cpu
             } else {
                 SensorType::Other
-            };
-
-            // Read temp
-            let input_label_filepath_str = input_label_filepath.to_string_lossy();
-            let input_temp_filepath = PathBuf::from(&format!(
-                "{}_input",
-                input_label_filepath_str[..input_label_filepath_str.len() - 6].to_owned()
-            ));
-            let temp_val = match read_sysfs_temp_value(&input_temp_filepath).unwrap_or(None) {
-                Some(v) => v,
-                None => continue,
-            };
-
-            // Read warning temp
-            let max_temp_filepath = PathBuf::from(&format!(
-                "{}_max",
-                input_label_filepath_str[..input_label_filepath_str.len() - 6].to_owned()
-            ));
-            let max_temp_val = read_sysfs_temp_value(&max_temp_filepath)?;
-
-            // Read critical temp
-            let crit_temp_filepath = PathBuf::from(format!(
-                "{}_crit",
-                input_label_filepath_str[..input_label_filepath_str.len() - 6].to_owned()
-            ));
-            let crit_temp_val = read_sysfs_temp_value(&crit_temp_filepath)?;
-
-            // Compute warning & critical temps
-            let warning_temp;
-            let crit_temp;
-            if let (Some(max_temp_val), Some(crit_temp_val)) = (max_temp_val, crit_temp_val) {
-                let (mut max_temp_val, crit_temp_val) = (
-                    cmp::min(max_temp_val, crit_temp_val),
-                    cmp::max(max_temp_val, crit_temp_val),
-                );
-                let abs_diff = crit_temp_val - max_temp_val;
-                let delta = match sensor_type {
-                    SensorType::Cpu => abs_diff / 2,
-                    SensorType::Other => 5,
-                    _ => unreachable!(),
-                };
-                if let SensorType::Other = sensor_type {
-                    if abs_diff > 20 {
-                        max_temp_val = crit_temp_val - 20;
-                    }
-                }
-                warning_temp = max_temp_val - delta;
-                crit_temp = max_temp_val;
-            } else if let Some(max_temp_val) = max_temp_val {
-                let delta = match sensor_type {
-                    SensorType::Cpu => 10,
-                    SensorType::Other => 5,
-                    _ => unreachable!(),
-                };
-                warning_temp = max_temp_val - delta;
-                crit_temp = max_temp_val;
-            } else {
-                warning_temp = match sensor_type {
-                    // Fallback to default value
-                    SensorType::Cpu => 60,
-                    SensorType::Other => 50,
-                    _ => unreachable!(),
-                };
-                crit_temp = match sensor_type {
-                    // Fallback to default value
-                    SensorType::Cpu => 75,
-                    SensorType::Other => 60,
-                    _ => unreachable!(),
-                };
             }
+        } else {
+            let name_filepath = input_temp_filepath.with_file_name("name");
+            let mut name_file = File::open(&name_filepath)?;
+            let mut name = String::new();
+            name_file.read_to_string(&mut name)?;
+            if name == "drivetemp\n" {
+                SensorType::Drive
+            } else {
+                continue;
+            }
+        };
 
-            // Store temp
-            let sensor_temp = SensorTemp {
-                name: label,
-                sensor_type,
-                temp: temp_val,
-                temp_warning: warning_temp,
-                temp_critical: crit_temp,
+        // Set drivetemp label
+        // TODO read first in device/block/ and find link to it in /dev/disk/by-id/ to get pretty label
+        let label = label.unwrap_or_else(|| "Drivetemp".to_string());
+
+        // Read temp
+        let input_temp_filepath = PathBuf::from(&format!("{}_input", filepath_prefix));
+        let temp_val = match read_sysfs_temp_value(&input_temp_filepath).unwrap_or(None) {
+            Some(v) => v,
+            None => continue,
+        };
+
+        // Read warning temp
+        let max_temp_filepath = PathBuf::from(&format!("{}_max", filepath_prefix));
+        let max_temp_val = read_sysfs_temp_value(&max_temp_filepath)?;
+
+        // Read critical temp
+        let crit_temp_filepath = PathBuf::from(format!("{}_crit", filepath_prefix));
+        let crit_temp_val = read_sysfs_temp_value(&crit_temp_filepath)?;
+
+        // Compute warning & critical temps
+        let warning_temp;
+        let crit_temp;
+        if let (Some(max_temp_val), Some(crit_temp_val)) = (max_temp_val, crit_temp_val) {
+            let (mut max_temp_val, crit_temp_val) = (
+                cmp::min(max_temp_val, crit_temp_val),
+                cmp::max(max_temp_val, crit_temp_val),
+            );
+            let abs_diff = crit_temp_val - max_temp_val;
+            let delta = match sensor_type {
+                SensorType::Cpu => abs_diff / 2,
+                SensorType::Drive | SensorType::Other => 5,
             };
-            temps.push(sensor_temp);
+            if let SensorType::Other = sensor_type {
+                if abs_diff > 20 {
+                    max_temp_val = crit_temp_val - 20;
+                }
+            }
+            warning_temp = max_temp_val - delta;
+            crit_temp = max_temp_val;
+        } else if let Some(max_temp_val) = max_temp_val {
+            let delta = match sensor_type {
+                SensorType::Cpu => 10,
+                SensorType::Drive | SensorType::Other => 5,
+            };
+            warning_temp = max_temp_val - delta;
+            crit_temp = max_temp_val;
+        } else {
+            warning_temp = match sensor_type {
+                // Fallback to default value
+                SensorType::Cpu => 60,
+                SensorType::Drive | SensorType::Other => 50,
+            };
+            crit_temp = match sensor_type {
+                // Fallback to default value
+                SensorType::Cpu => 75,
+                SensorType::Drive | SensorType::Other => 60,
+            };
         }
+
+        // Store temp
+        let sensor_temp = SensorTemp {
+            name: label,
+            sensor_type,
+            temp: temp_val,
+            temp_warning: warning_temp,
+            temp_critical: crit_temp,
+        };
+        temps.push(sensor_temp);
     }
 
     // HDD temps

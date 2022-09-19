@@ -14,8 +14,9 @@ strip = true
 ansi_term = { version = "0.12.1", default-features = false }
 anyhow = { version = "1.0.65", default-features = false, features = ["std", "backtrace"] }
 clap =  { version = "3.2.22", default-features = false, features = ["std", "color"] }
-glob =  { version = "0.3.0", default-features = false }
 itertools =  { version = "0.10.4", default-features = false, features = ["use_std"] }
 libc =  { version = "0.2.132", default-features = false }
 num_cpus =  { version = "1.13.1", default-features = false }
+regex = { version = "1.6.0", default-features = false, features = ["std"] }
 termsize =  { version = "0.1.6", default-features = false }
+walkdir = { version = "2.3.2", default-features = false }
