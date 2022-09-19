@@ -8,10 +8,12 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use ansi_term::Colour::*;
+use anyhow::Context;
 
 use crate::ModuleData;
 
 /// Type of temperature sensor
+#[derive(Debug, PartialEq, Eq)]
 enum SensorType {
     /// CPU sensor
     Cpu,
@@ -42,21 +44,21 @@ pub struct HardwareTemps {
 }
 
 /// Read temperature from a given hwmon sysfs file
-fn read_sysfs_temp_value(filepath: &Path) -> anyhow::Result<Option<u32>> {
-    let mut input_file = match File::open(filepath) {
-        Ok(f) => f,
-        Err(_) => return Ok(None),
-    };
-    let mut temp_str = String::new();
-    input_file.read_to_string(&mut temp_str)?;
-    let temp_val = temp_str.trim_end().parse::<i32>().map(|v| v / 1000)?;
+fn read_sysfs_temp_value(filepath: &Path) -> anyhow::Result<u32> {
+    let temp_str = read_sysfs_string_value(filepath)?;
+    let temp_val = temp_str.trim_end().parse::<u32>().map(|v| v / 1000)?;
 
-    if temp_val <= 0 {
-        // Exclude negative values
-        return Ok(None);
-    }
+    anyhow::ensure!(temp_val > 0);
 
-    Ok(Some(temp_val as u32))
+    Ok(temp_val)
+}
+
+/// Read string from a given sysfs file
+fn read_sysfs_string_value(filepath: &Path) -> anyhow::Result<String> {
+    let mut file = File::open(filepath).context(format!("Failed to open {:?}", filepath))?;
+    let mut s = String::new();
+    file.read_to_string(&mut s)?;
+    Ok(s.trim_end().to_string())
 }
 
 /// Probe temperatures from hwmon Linux sensors
@@ -64,8 +66,6 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
     let mut temps = Vec::new();
 
     // Hwmon sensors
-
-    // TODO this takes 8-10ms and probably could use some optimizing
 
     // Totally incomplete and arbitary list of sensor names to blacklist
     // = those that return invalid values on motherboards I own
@@ -92,10 +92,7 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
         // Read sensor name
         let label_filepath = PathBuf::from(&format!("{}_label", filepath_prefix));
         let label = if label_filepath.is_file() {
-            let mut label = String::new();
-            let mut input_label_file = File::open(&label_filepath)?;
-            input_label_file.read_to_string(&mut label)?;
-            label = label.trim_end().to_string();
+            let label = read_sysfs_string_value(&label_filepath)?;
             if label_blacklist.contains(&label) {
                 // Label in blacklist, exclude
                 continue;
@@ -114,10 +111,8 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
             }
         } else {
             let name_filepath = input_temp_filepath.with_file_name("name");
-            let mut name_file = File::open(&name_filepath)?;
-            let mut name = String::new();
-            name_file.read_to_string(&mut name)?;
-            if name == "drivetemp\n" {
+            let name = read_sysfs_string_value(&name_filepath)?;
+            if name == "drivetemp" {
                 SensorType::Drive
             } else {
                 continue;
@@ -125,23 +120,38 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
         };
 
         // Set drivetemp label
-        // TODO read first in device/block/ and find link to it in /dev/disk/by-id/ to get pretty label
-        let label = label.unwrap_or_else(|| "Drivetemp".to_string());
+        let label = if let Some(label) = label {
+            label
+        } else {
+            assert_eq!(sensor_type, SensorType::Drive);
+            let model_filepath = input_temp_filepath.with_file_name("device/model");
+            let model = read_sysfs_string_value(&model_filepath)?;
+            let block_dirpath = input_temp_filepath.with_file_name("device/block");
+            let block_device_name = fs::read_dir(&block_dirpath)?
+                .next()
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Unable to get block device from {:?}", block_dirpath)
+                })??
+                .file_name()
+                .into_string()
+                .map_err(|e| anyhow::anyhow!("Unable to decode {:?}", e))?;
+            format!("{} ({})", block_device_name, model)
+        };
 
         // Read temp
         let input_temp_filepath = PathBuf::from(&format!("{}_input", filepath_prefix));
-        let temp_val = match read_sysfs_temp_value(&input_temp_filepath).unwrap_or(None) {
-            Some(v) => v,
-            None => continue,
+        let temp_val = match read_sysfs_temp_value(&input_temp_filepath) {
+            Ok(v) => v,
+            Err(_) => continue,
         };
 
         // Read warning temp
         let max_temp_filepath = PathBuf::from(&format!("{}_max", filepath_prefix));
-        let max_temp_val = read_sysfs_temp_value(&max_temp_filepath)?;
+        let max_temp_val = read_sysfs_temp_value(&max_temp_filepath).ok();
 
         // Read critical temp
         let crit_temp_filepath = PathBuf::from(format!("{}_crit", filepath_prefix));
-        let crit_temp_val = read_sysfs_temp_value(&crit_temp_filepath)?;
+        let crit_temp_val = read_sysfs_temp_value(&crit_temp_filepath).ok();
 
         // Compute warning & critical temps
         let warning_temp;
