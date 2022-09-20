@@ -73,7 +73,7 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
     label_blacklist.insert("SYSTIN".to_string());
     label_blacklist.insert("CPUTIN".to_string());
 
-    let re = regex::Regex::new(r"/sys/class/hwmon/hwmon[0-9]+/temp[0-9]+_input").unwrap();
+    let re = regex::Regex::new("temp[0-9]+_input").unwrap();
 
     for input_temp_filepath in walkdir::WalkDir::new("/sys/class/hwmon")
         .follow_links(true)
@@ -81,9 +81,10 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
         .max_depth(2)
         .sort_by_file_name()
         .into_iter()
+        .filter_entry(|e| !e.path_is_symlink() && e.file_type().is_file())
         .filter_map(|e| e.ok())
         .map(|e| e.into_path())
-        .filter(|p| re.is_match(p.to_str().unwrap()))
+        .filter(|p| re.is_match(p.file_name().unwrap().to_str().unwrap()))
     {
         let input_temp_filepath_str = input_temp_filepath.to_str().unwrap();
         let filepath_prefix =
