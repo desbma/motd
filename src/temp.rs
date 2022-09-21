@@ -1,7 +1,7 @@
 use std::cmp;
 use std::collections::HashSet;
 use std::fmt;
-use std::fs::{self, File};
+use std::fs;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
@@ -55,10 +55,10 @@ fn read_sysfs_temp_value(filepath: &Path) -> anyhow::Result<u32> {
 
 /// Read string from a given sysfs file
 fn read_sysfs_string_value(filepath: &Path) -> anyhow::Result<String> {
-    let mut file = File::open(filepath).context(format!("Failed to open {:?}", filepath))?;
-    let mut s = String::new();
-    file.read_to_string(&mut s)?;
-    Ok(s.trim_end().to_string())
+    Ok(fs::read_to_string(filepath)
+        .context(format!("Failed to read {:?}", filepath))?
+        .trim_end()
+        .to_string())
 }
 
 /// Probe temperatures from hwmon Linux sensors
