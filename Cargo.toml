@@ -10,6 +10,9 @@ codegen-units = 1
 panic = "abort"
 strip = true
 
+[dev-dependencies]
+serial_test = { version = "0.9.0", default-features = false }
+
 [dependencies]
 ansi_term = { version = "0.12.1", default-features = false }
 anyhow = { version = "1.0.65", default-features = false, features = ["std", "backtrace"] }

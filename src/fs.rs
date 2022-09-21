@@ -228,9 +228,12 @@ impl fmt::Display for FsInfo {
 mod tests {
     use super::*;
 
+    use serial_test::serial;
+
     use crate::module;
 
     #[test]
+    #[serial]
     fn test_output_fs_info() {
         module::TERM_COLUMNS.store(40, Ordering::SeqCst);
         assert_eq!(

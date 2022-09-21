@@ -305,7 +305,10 @@ mod tests {
     use crate::module;
     use ansi_term::Colour::*;
 
+    use serial_test::serial;
+
     #[test]
+    #[serial]
     fn test_output_bar() {
         // Check rounding
         module::TERM_COLUMNS.store(102, Ordering::SeqCst);
@@ -732,6 +735,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_output_mem() {
         let mut vals = HashMap::new();
         vals.insert("MemTotal".to_string(), 12345);
@@ -756,6 +760,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_output_swap() {
         let mut vals = HashMap::new();
         vals.insert("SwapTotal".to_string(), 12345678);
