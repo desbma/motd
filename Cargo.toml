@@ -18,5 +18,9 @@ itertools =  { version = "0.10.4", default-features = false, features = ["use_st
 libc =  { version = "0.2.132", default-features = false }
 num_cpus =  { version = "1.13.1", default-features = false }
 regex = { version = "1.6.0", default-features = false, features = ["std"] }
+serde = { version = "1.0.144", default-features = false, features = ["derive", "std"] }
+serde_regex = { version = "1.1.0", default-features = false }
 termsize =  { version = "0.1.6", default-features = false }
+toml = { version = "0.5.9", default-features = false }
 walkdir = { version = "2.3.2", default-features = false }
+xdg = { version = "2.4.1", default-features = false }

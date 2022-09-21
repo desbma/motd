@@ -41,6 +41,22 @@ install -Dm 755 -t /usr/local/bin target/release/motd
 
 Arch Linux users can install the [motd AUR package](https://aur.archlinux.org/packages/motd/).
 
+## Configuration
+
+Configuration is **optional**, and allows you to exclude for example some filesystems or temperature sensors based on regular expressions.
+
+Example of `~/.config/motd/config.toml` config file:
+
+```
+[fs]
+mount_path_blacklist = ["^/dev($|/)", "^/run($|/)"]
+mount_type_blacklist = ["^tmpfs$"]
+
+[temp]
+hwmon_label_blacklist = ["^CPUTIN$", "^SYSTIN$"]
+
+```
+
 ## License
 
 [GPLv3](https://www.gnu.org/licenses/gpl-3.0-standalone.html)

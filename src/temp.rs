@@ -1,5 +1,4 @@
 use std::cmp;
-use std::collections::HashSet;
 use std::fmt;
 use std::fs;
 use std::io::prelude::*;
@@ -10,6 +9,7 @@ use std::str::FromStr;
 use ansi_term::Colour::*;
 use anyhow::Context;
 
+use crate::config;
 use crate::ModuleData;
 
 /// Type of temperature sensor
@@ -62,16 +62,12 @@ fn read_sysfs_string_value(filepath: &Path) -> anyhow::Result<String> {
 }
 
 /// Probe temperatures from hwmon Linux sensors
-pub fn fetch() -> anyhow::Result<ModuleData> {
+pub fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
     let mut temps = Vec::new();
 
+    //
     // Hwmon sensors
-
-    // Totally incomplete and arbitary list of sensor names to blacklist
-    // = those that return invalid values on motherboards I own
-    let mut label_blacklist: HashSet<String> = HashSet::new();
-    label_blacklist.insert("SYSTIN".to_string());
-    label_blacklist.insert("CPUTIN".to_string());
+    //
 
     let re = regex::Regex::new("temp[0-9]+_input").unwrap();
 
@@ -90,12 +86,12 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
         let filepath_prefix =
             input_temp_filepath_str[..input_temp_filepath_str.len() - 6].to_owned();
 
-        // Read sensor name
+        // Read sensor label
         let label_filepath = PathBuf::from(&format!("{}_label", filepath_prefix));
         let label = if label_filepath.is_file() {
             let label = read_sysfs_string_value(&label_filepath)?;
-            if label_blacklist.contains(&label) {
-                // Label in blacklist, exclude
+            // Exclude from label blacklist
+            if cfg.hwmon_label_blacklist.iter().any(|r| r.is_match(&label)) {
                 continue;
             }
             Some(label)
@@ -205,7 +201,9 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
         temps.push(sensor_temp);
     }
 
+    //
     // HDD temps
+    //
 
     // Connect
     if let Ok(mut stream) = TcpStream::connect("127.0.0.1:7634") {

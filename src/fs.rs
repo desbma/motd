@@ -12,6 +12,7 @@ use ansi_term::Colour::*;
 use ansi_term::Style;
 use libc::{endmntent, getmntent, setmntent, statvfs};
 
+use crate::config;
 use crate::fmt::format_kmgt;
 use crate::module::{ModuleData, TERM_COLUMNS};
 
@@ -30,7 +31,7 @@ pub struct FsInfo {
 }
 
 /// Fetch filesystem information for all filesystems
-pub fn fetch() -> anyhow::Result<ModuleData> {
+pub fn fetch(cfg: &config::FsConfig) -> anyhow::Result<ModuleData> {
     let mut mounts = Vec::new();
 
     // Open mount list file
@@ -57,17 +58,18 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
         }
         let mount_path: &Path = OsStr::from_bytes(mount_path_raw.to_bytes()).as_ref();
 
-        // Exclude some cases
-        if (fs_type == "devtmpfs")
-            || (fs_type == "autofs")
-            || fs_type.starts_with("fuse.")
-            || mount_path.starts_with("/dev/")
-            || (mount_path == PathBuf::from("/run"))
-            || mount_path.starts_with("/run/")
-            || mount_path.starts_with("/sys/")
-            || mount_path.starts_with("/var/lib/dhcpcd/run/")
-        {
+        // Exclusions
+        if cfg.mount_type_blacklist.iter().any(|r| r.is_match(fs_type)) {
             continue;
+        }
+        if let Some(mount_path) = mount_path.to_str() {
+            if cfg
+                .mount_path_blacklist
+                .iter()
+                .any(|r| r.is_match(mount_path))
+            {
+                continue;
+            }
         }
 
         // Exclude mounts of devices already mounted (avoids duplicate for bind mounts or btrfs subvolumes)

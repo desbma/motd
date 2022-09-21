@@ -5,11 +5,13 @@ use std::sync::atomic::Ordering;
 use std::thread;
 
 use ansi_term::Colour::*;
+use anyhow::Context;
 use clap::{App, Arg};
 use itertools::Itertools;
 
 use crate::module::ModuleData;
 
+mod config;
 mod fmt;
 mod fs;
 mod load;
@@ -196,7 +198,7 @@ fn parse_cl_args() -> CLArgs {
                 .long("columns")
                 .takes_value(true)
                 .allow_hyphen_values(true)
-                .validator(validator_isize)
+                    .validator(validator_isize)
                 .default_value(&default_term_columns_string)
                 .help("Maximum terminal columns to use. Set to 0 to autotetect. -X to use autodetected value or X, whichever is lower."),
         )
@@ -247,56 +249,61 @@ fn parse_cl_args() -> CLArgs {
 
 fn main() -> anyhow::Result<()> {
     let cl_args = parse_cl_args();
+    let cfg = config::parse_config().context("Failed to parse config file")?;
 
     module::CPU_COUNT.store(num_cpus::get(), Ordering::SeqCst);
     module::TERM_COLUMNS.store(cl_args.term_columns, Ordering::SeqCst);
 
-    let mut section_futs: Vec<thread::JoinHandle<anyhow::Result<ModuleData>>> = Vec::new();
-    section_futs.reserve(cl_args.sections.len());
-    for section in &cl_args.sections {
-        let section_fut = match section {
-            Section::Load => thread::spawn(load::fetch),
-            Section::Mem => thread::spawn(mem::fetch),
-            Section::Swap => thread::spawn(|| {
-                // TODO fetch only once?
-                let mi = mem::fetch()?;
-                if let ModuleData::Memory(mi) = mi {
-                    Ok(ModuleData::Swap(mem::SwapInfo::from(mi)))
-                } else {
-                    unreachable!();
-                }
-            }),
-            Section::FS => thread::spawn(fs::fetch),
-            Section::Temps => thread::spawn(temp::fetch),
-            Section::SDFailedUnits => thread::spawn(systemd::fetch),
-            Section::Network => thread::spawn(net::fetch),
-        };
-        section_futs.push(section_fut);
-    }
+    thread::scope(|scope| -> anyhow::Result<_> {
+        let mut section_futs: Vec<thread::ScopedJoinHandle<anyhow::Result<ModuleData>>> =
+            Vec::new();
+        section_futs.reserve(cl_args.sections.len());
 
-    for (i, (section_fut, section)) in section_futs
-        .into_iter()
-        .zip(cl_args.sections.iter())
-        .enumerate()
-    {
-        let delayed = !section_fut.is_finished();
-        if delayed {
-            eprint!("{}", LOADING_MSG);
+        for section in &cl_args.sections {
+            let section_fut = match section {
+                Section::Load => scope.spawn(load::fetch),
+                Section::Mem => scope.spawn(mem::fetch),
+                Section::Swap => scope.spawn(|| {
+                    // TODO fetch only once?
+                    let mi = mem::fetch()?;
+                    if let ModuleData::Memory(mi) = mi {
+                        Ok(ModuleData::Swap(mem::SwapInfo::from(mi)))
+                    } else {
+                        unreachable!();
+                    }
+                }),
+                Section::FS => scope.spawn(|| fs::fetch(&cfg.fs)),
+                Section::Temps => scope.spawn(|| temp::fetch(&cfg.temp)),
+                Section::SDFailedUnits => scope.spawn(systemd::fetch),
+                Section::Network => scope.spawn(net::fetch),
+            };
+            section_futs.push(section_fut);
         }
-        let lines = section_fut
-            .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))?
-            .map(|i| format!("{}", i))
-            .map_err(|e| format!("{}", e));
-        output_section(
-            pretty_section_name(section),
-            lines,
-            cl_args.show_section_titles,
-            i == 0,
-            delayed,
-            cl_args.term_columns,
-        );
-    }
 
-    Ok(())
+        for (i, (section_fut, section)) in section_futs
+            .into_iter()
+            .zip(cl_args.sections.iter())
+            .enumerate()
+        {
+            let delayed = !section_fut.is_finished();
+            if delayed {
+                eprint!("{}", LOADING_MSG);
+            }
+            let lines = section_fut
+                .join()
+                .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))?
+                .map(|i| format!("{}", i))
+                .map_err(|e| format!("{}", e));
+            output_section(
+                pretty_section_name(section),
+                lines,
+                cl_args.show_section_titles,
+                i == 0,
+                delayed,
+                cl_args.term_columns,
+            );
+        }
+
+        Ok(())
+    })
 }
