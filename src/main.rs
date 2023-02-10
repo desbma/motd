@@ -56,7 +56,7 @@ fn output_title(title: &str, columns: usize, new_line: bool) {
     if new_line {
         println!();
     }
-    println!("{:─^width$}", format!(" {} ", title), width = columns);
+    println!("{:─^width$}", format!(" {title} "), width = columns);
 }
 
 /// Output section title and lines
@@ -80,16 +80,13 @@ fn output_section(
                     println!();
                 }
 
-                print!("{}", lines);
+                print!("{lines}");
             }
         }
         Err(err) => {
             eprintln!(
                 "{}",
-                Red.paint(format!(
-                    "Failed to get data for '{}' section: {}",
-                    title, err
-                ))
+                Red.paint(format!("Failed to get data for '{title}' section: {err}"))
             );
         }
     }
@@ -146,7 +143,7 @@ fn validator_isize(s: &str) -> Result<(), String> {
 /// Parse and validate command line arguments
 fn parse_cl_args() -> CLArgs {
     // Default values
-    let default_term_columns_string = format!("-{}", FALLBACK_TERM_COLUMNS);
+    let default_term_columns_string = format!("-{FALLBACK_TERM_COLUMNS}");
     let sections_str: Vec<&'static str> = vec![
         Section::Load,
         Section::Mem,
@@ -287,13 +284,13 @@ fn main() -> anyhow::Result<()> {
         {
             let delayed = !section_fut.is_finished();
             if delayed {
-                eprint!("{}", LOADING_MSG);
+                eprint!("{LOADING_MSG}");
             }
             let lines = section_fut
                 .join()
                 .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))?
-                .map(|i| format!("{}", i))
-                .map_err(|e| format!("{}", e));
+                .map(|i| format!("{i}"))
+                .map_err(|e| format!("{e}"));
             output_section(
                 pretty_section_name(section),
                 lines,

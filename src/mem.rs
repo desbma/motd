@@ -206,7 +206,7 @@ impl fmt::Display for MemInfo {
         let used_bar_text: Vec<String> = vec![
             "Used".to_string(),
             format!(" {:.1}GB", used_mem_mb as f32 / 1024.0),
-            format!(" ({:.1}%)", used_prct),
+            format!(" ({used_prct:.1}%)"),
         ];
         mem_bar_parts.push(BarPart {
             label: used_bar_text,
@@ -220,7 +220,7 @@ impl fmt::Display for MemInfo {
         let cached_bar_text: Vec<String> = vec![
             "Cached".to_string(),
             format!(" {:.1}GB", (cache_mem_mb + buffer_mem_mb) as f32 / 1024.0),
-            format!(" ({:.1}%)", cached_prct),
+            format!(" ({cached_prct:.1}%)"),
         ];
         mem_bar_parts.push(BarPart {
             label: cached_bar_text,
@@ -234,7 +234,7 @@ impl fmt::Display for MemInfo {
         let free_bar_text: Vec<String> = vec![
             "Free".to_string(),
             format!(" {:.1}GB", free_mem_mb as f32 / 1024.0),
-            format!(" ({:.1}%)", free_prct),
+            format!(" ({free_prct:.1}%)"),
         ];
         mem_bar_parts.push(BarPart {
             label: free_bar_text,
@@ -267,7 +267,7 @@ impl fmt::Display for SwapInfo {
             let used_bar_text: Vec<String> = vec![
                 "Used".to_string(),
                 format!(" {:.1}GB", used_swap_mb as f32 / 1024.0),
-                format!(" ({:.1}%)", used_prct),
+                format!(" ({used_prct:.1}%)"),
             ];
             swap_bar_parts.push(BarPart {
                 label: used_bar_text,
@@ -281,7 +281,7 @@ impl fmt::Display for SwapInfo {
             let free_bar_text: Vec<String> = vec![
                 "Swap free".to_string(),
                 format!(" {:.1}GB", free_swap_mb as f32 / 1024.0),
-                format!(" ({:.1}%)", free_prct),
+                format!(" ({free_prct:.1}%)"),
             ];
             swap_bar_parts.push(BarPart {
                 label: free_bar_text,

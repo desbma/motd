@@ -13,7 +13,7 @@ pub fn format_kmgt(val: u64, unit: &str) -> String {
     } else if val >= K {
         format!("{:.1} K{}", val as f32 / K as f32, unit)
     } else {
-        format!("{} {}", val, unit)
+        format!("{val} {unit}")
     }
 }
 
@@ -32,6 +32,6 @@ pub fn format_kmgt_si(val: u64, unit: &str) -> String {
     } else if val >= K_SI {
         format!("{:.1} k{}", val as f32 / K_SI as f32, unit)
     } else {
-        format!("{} {}", val, unit)
+        format!("{val} {unit}")
     }
 }

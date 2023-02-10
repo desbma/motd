@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::{self, DirEntry, File};
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -85,8 +85,8 @@ fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
         let (rx_bytes, tx_bytes, ts) =
             read_interface_stats(&mut rx_bytes_file, &mut tx_bytes_file)?;
 
-        rx_bytes_file.seek(SeekFrom::Start(0))?;
-        tx_bytes_file.seek(SeekFrom::Start(0))?;
+        rx_bytes_file.rewind()?;
+        tx_bytes_file.rewind()?;
 
         let line_bps = if itf_dir.join("tun_flags").exists() {
             /* tun always report 10 Mbps even if we can exceed that limit */
@@ -178,18 +178,20 @@ impl fmt::Display for NetworkStats {
     /// Output network stats
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let unit = "b/s";
-        let max_itf_len = match (&self.interfaces).iter().map(|(k, _v)| k.len()).max() {
+        let max_itf_len = match self.interfaces.keys().map(|k| k.len()).max() {
             Some(m) => m,
             None => return Ok(()),
         };
-        let mac_rx_str_len = (&self.interfaces)
-            .iter()
-            .map(|(_k, v)| format_kmgt_si(v.rx_bps, unit).len())
+        let mac_rx_str_len = self
+            .interfaces
+            .values()
+            .map(|v| format_kmgt_si(v.rx_bps, unit).len())
             .max()
             .unwrap();
-        let mac_tx_str_len = (&self.interfaces)
-            .iter()
-            .map(|(_k, v)| format_kmgt_si(v.tx_bps, unit).len())
+        let mac_tx_str_len = self
+            .interfaces
+            .values()
+            .map(|v| format_kmgt_si(v.tx_bps, unit).len())
             .max()
             .unwrap();
 

@@ -56,7 +56,7 @@ fn read_sysfs_temp_value(filepath: &Path) -> anyhow::Result<u32> {
 /// Read string from a given sysfs file
 fn read_sysfs_string_value(filepath: &Path) -> anyhow::Result<String> {
     Ok(fs::read_to_string(filepath)
-        .context(format!("Failed to read {:?}", filepath))?
+        .context(format!("Failed to read {filepath:?}"))?
         .trim_end()
         .to_string())
 }
@@ -87,7 +87,7 @@ pub fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
             input_temp_filepath_str[..input_temp_filepath_str.len() - 6].to_owned();
 
         // Read sensor label
-        let label_filepath = PathBuf::from(&format!("{}_label", filepath_prefix));
+        let label_filepath = PathBuf::from(&format!("{filepath_prefix}_label"));
         let label = if label_filepath.is_file() {
             let label = read_sysfs_string_value(&label_filepath)?;
             // Exclude from label blacklist
@@ -132,22 +132,22 @@ pub fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
                 .file_name()
                 .into_string()
                 .map_err(|e| anyhow::anyhow!("Unable to decode {:?}", e))?;
-            format!("{} ({})", block_device_name, model)
+            format!("{block_device_name} ({model})")
         };
 
         // Read temp
-        let input_temp_filepath = PathBuf::from(&format!("{}_input", filepath_prefix));
+        let input_temp_filepath = PathBuf::from(&format!("{filepath_prefix}_input"));
         let temp_val = match read_sysfs_temp_value(&input_temp_filepath) {
             Ok(v) => v,
             Err(_) => continue,
         };
 
         // Read warning temp
-        let max_temp_filepath = PathBuf::from(&format!("{}_max", filepath_prefix));
+        let max_temp_filepath = PathBuf::from(&format!("{filepath_prefix}_max"));
         let max_temp_val = read_sysfs_temp_value(&max_temp_filepath).ok();
 
         // Read critical temp
-        let crit_temp_filepath = PathBuf::from(format!("{}_crit", filepath_prefix));
+        let crit_temp_filepath = PathBuf::from(format!("{filepath_prefix}_crit"));
         let crit_temp_val = read_sysfs_temp_value(&crit_temp_filepath).ok();
 
         // Compute warning & critical temps
