@@ -144,7 +144,7 @@ fn validator_isize(s: &str) -> Result<(), String> {
 fn parse_cl_args() -> CLArgs {
     // Default values
     let default_term_columns_string = format!("-{FALLBACK_TERM_COLUMNS}");
-    let sections_str: Vec<&'static str> = vec![
+    let sections_str: Vec<&'static str> = [
         Section::Load,
         Section::Mem,
         Section::Swap,
