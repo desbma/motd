@@ -2,6 +2,8 @@
 name = "motd"
 version = "1.3.0"
 authors = ["desbma <desbma@users.noreply.github.com>"]
+description = "Dynamically generate Linux MOTD SSH banner"
+license = "GPL-3.0-only"
 edition = "2021"
 
 [profile.release]

@@ -37,6 +37,10 @@ cargo build --release
 install -Dm 755 -t /usr/local/bin target/release/motd
 ```
 
+### Debian package
+
+See [GitHub releases](https://github.com/desbma/motd/releases) for Debian packages built for each tagged version.
+
 ### From the AUR
 
 Arch Linux users can install the [motd AUR package](https://aur.archlinux.org/packages/motd/).
