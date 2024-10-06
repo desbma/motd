@@ -28,7 +28,7 @@ pub struct SensorTemp {
     /// Name of sensor
     name: String,
     /// Type of sensor
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     sensor_type: SensorType,
     /// Temperature value in Celcius
     temp: u32,

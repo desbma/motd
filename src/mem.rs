@@ -71,7 +71,6 @@ struct BarPart {
 }
 
 /// Print memory bar
-#[allow(clippy::unnecessary_to_owned)]
 fn display_bar(parts: &[BarPart], f: &mut dyn fmt::Write) -> fmt::Result {
     // Compute part lengths and handle rounding
     let term_columns = TERM_COLUMNS.load(Ordering::SeqCst);
@@ -79,7 +78,6 @@ fn display_bar(parts: &[BarPart], f: &mut dyn fmt::Write) -> fmt::Result {
         .iter()
         .map(|part| ((term_columns - 2) as f32 * part.prct / 100.0) as usize)
         .collect();
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::op_ref))]
     while &part_lens_int.iter().sum() + (2_usize) < term_columns {
         // Compute fractional parts
         let part_lens_frac: Vec<f32> = parts
@@ -129,7 +127,7 @@ fn display_bar(parts: &[BarPart], f: &mut dyn fmt::Write) -> fmt::Result {
             "{}",
             &part
                 .fill_style
-                .paint(&part.bar_char.to_string().repeat(fill_count_before))
+                .paint(part.bar_char.to_string().repeat(fill_count_before))
         )?;
         write!(f, "{}", &part.text_style.paint(&label))?;
         write!(
@@ -137,7 +135,7 @@ fn display_bar(parts: &[BarPart], f: &mut dyn fmt::Write) -> fmt::Result {
             "{}",
             &part
                 .fill_style
-                .paint(&part.bar_char.to_string().repeat(fill_count_after))
+                .paint(part.bar_char.to_string().repeat(fill_count_after))
         )?;
     }
 

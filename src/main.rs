@@ -253,8 +253,7 @@ fn main() -> anyhow::Result<()> {
 
     thread::scope(|scope| -> anyhow::Result<_> {
         let mut section_futs: Vec<thread::ScopedJoinHandle<anyhow::Result<ModuleData>>> =
-            Vec::new();
-        section_futs.reserve(cl_args.sections.len());
+            Vec::with_capacity(cl_args.sections.len());
 
         for section in &cl_args.sections {
             let section_fut = match section {
