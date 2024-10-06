@@ -110,6 +110,7 @@ pub(crate) fn fetch(cfg: &config::FsConfig) -> anyhow::Result<ModuleData> {
 }
 
 /// Fetch detailed filesystem information
+#[allow(clippy::allow_attributes, clippy::unnecessary_cast)] // 32/64 bits
 fn fetch_mount_info(mount_path: &Path) -> Result<FsMountInfo, io::Error> {
     // SAFETY: libc call arg
     let mut fs_stat: statvfs = unsafe { mem::zeroed() };
@@ -120,8 +121,8 @@ fn fetch_mount_info(mount_path: &Path) -> Result<FsMountInfo, io::Error> {
         return Err(io::Error::last_os_error());
     }
 
-    let total_bytes = fs_stat.f_blocks * fs_stat.f_bsize;
-    let used_bytes = total_bytes - fs_stat.f_bfree * fs_stat.f_bsize;
+    let total_bytes = fs_stat.f_blocks * fs_stat.f_bsize as u64;
+    let used_bytes = total_bytes - fs_stat.f_bfree * fs_stat.f_bsize as u64;
 
     Ok(FsMountInfo {
         total_bytes,
