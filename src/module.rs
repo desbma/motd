@@ -1,16 +1,17 @@
 //! Module common stuff
 
-use std::fmt;
-use std::sync::atomic::AtomicUsize;
+use std::{fmt, sync::atomic::AtomicUsize};
 
-use crate::fs::FsInfo;
-use crate::load::LoadInfo;
-use crate::mem::{MemInfo, SwapInfo};
-use crate::net::NetworkStats;
-use crate::systemd::FailedUnits;
-use crate::temp::HardwareTemps;
+use crate::{
+    fs::FsInfo,
+    load::LoadInfo,
+    mem::{MemInfo, SwapInfo},
+    net::NetworkStats,
+    systemd::FailedUnits,
+    temp::HardwareTemps,
+};
 
-pub enum ModuleData {
+pub(crate) enum ModuleData {
     Load(LoadInfo),
     Memory(MemInfo),
     Swap(SwapInfo),
@@ -37,5 +38,5 @@ impl fmt::Display for ModuleData {
 }
 
 // Global stuff, intitialized by main function or unit tests
-pub static CPU_COUNT: AtomicUsize = AtomicUsize::new(0);
-pub static TERM_COLUMNS: AtomicUsize = AtomicUsize::new(0);
+pub(crate) static CPU_COUNT: AtomicUsize = AtomicUsize::new(0);
+pub(crate) static TERM_COLUMNS: AtomicUsize = AtomicUsize::new(0);

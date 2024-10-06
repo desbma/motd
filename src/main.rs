@@ -1,10 +1,8 @@
-use std::cmp;
-use std::iter::Iterator;
-use std::str::FromStr;
-use std::sync::atomic::Ordering;
-use std::thread;
+//! MOTD banner generator
 
-use ansi_term::Colour::*;
+use std::{cmp, iter::Iterator, str::FromStr, sync::atomic::Ordering, thread};
+
+use ansi_term::Colour::Red;
 use anyhow::Context;
 use clap::{App, Arg};
 use itertools::Itertools;
@@ -93,7 +91,7 @@ fn output_section(
 }
 
 /// Get Section from letter
-fn section_to_letter(section: &Section) -> &'static str {
+fn section_to_letter(section: Section) -> &'static str {
     match section {
         Section::Load => "l",
         Section::Mem => "m",
@@ -136,7 +134,7 @@ fn letter_to_section(letter: &str) -> Section {
 fn validator_isize(s: &str) -> Result<(), String> {
     match isize::from_str(s) {
         Ok(_) => Ok(()),
-        Err(_) => Err("Not a valid integer value".to_string()),
+        Err(_) => Err("Not a valid integer value".to_owned()),
     }
 }
 
@@ -153,7 +151,7 @@ fn parse_cl_args() -> CLArgs {
         Section::Network,
         Section::SDFailedUnits,
     ]
-    .iter()
+    .into_iter()
     .map(section_to_letter)
     .collect();
     let default_sections_string = sections_str.join(",");
@@ -288,7 +286,7 @@ fn main() -> anyhow::Result<()> {
             let lines = section_fut
                 .join()
                 .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))?
-                .map(|i| format!("{i}"))
+                .map(|d| format!("{d}"))
                 .map_err(|e| format!("{e}"));
             output_section(
                 pretty_section_name(section),

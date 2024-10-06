@@ -1,15 +1,17 @@
-use std::fmt;
-use std::io::BufRead;
-use std::process::{Command, Stdio};
-use std::thread;
+use std::{
+    fmt,
+    io::BufRead,
+    process::{Command, Stdio},
+    thread,
+};
 
-use ansi_term::Colour::*;
+use ansi_term::Colour::Red;
 
 use crate::module::ModuleData;
 
 /// Names of failed Systemd units
 #[derive(Debug)]
-pub struct FailedUnits {
+pub(crate) struct FailedUnits {
     system: Vec<String>,
     user: Vec<String>,
 }
@@ -21,7 +23,7 @@ enum SystemdMode {
 }
 
 /// Get name of Systemd units in failed state
-pub fn fetch() -> anyhow::Result<ModuleData> {
+pub(crate) fn fetch() -> anyhow::Result<ModuleData> {
     let system_fut = thread::spawn(|| fetch_mode(SystemdMode::System));
     let user = fetch_mode(SystemdMode::User)?;
 
@@ -34,6 +36,7 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
 }
 
 /// Get name of Systemd units in failed state
+#[expect(clippy::needless_pass_by_value)]
 fn fetch_mode(mode: SystemdMode) -> anyhow::Result<Vec<String>> {
     let mut args = match mode {
         SystemdMode::System => vec![],
@@ -55,7 +58,7 @@ fn fetch_mode(mode: SystemdMode) -> anyhow::Result<Vec<String>> {
                 .split(' ')
                 .next()
                 .ok_or_else(|| anyhow::anyhow!("Failed to parse systemctl output"))?
-                .to_string(),
+                .to_owned(),
         );
     }
 
@@ -91,7 +94,7 @@ mod tests {
             format!(
                 "{}",
                 FailedUnits {
-                    system: vec!["foo.service".to_string(), "bar.timer".to_string()],
+                    system: vec!["foo.service".to_owned(), "bar.timer".to_owned()],
                     user: vec![]
                 }
             ),
@@ -102,7 +105,7 @@ mod tests {
                 "{}",
                 FailedUnits {
                     system: vec![],
-                    user: vec!["foo.service".to_string(), "bar.timer".to_string()]
+                    user: vec!["foo.service".to_owned(), "bar.timer".to_owned()]
                 }
             ),
             "User:\n\u{1b}[31mfoo.service\u{1b}[0m\n\u{1b}[31mbar.timer\u{1b}[0m\n"
@@ -111,8 +114,8 @@ mod tests {
             format!(
                 "{}",
                 FailedUnits {
-                    system: vec!["foo.service".to_string(), "bar.timer".to_string()],
-                    user: vec!["foo2.service".to_string()]
+                    system: vec!["foo.service".to_owned(), "bar.timer".to_owned()],
+                    user: vec!["foo2.service".to_owned()]
                 }
             ),
             "System:\n\u{1b}[31mfoo.service\u{1b}[0m\n\u{1b}[31mbar.timer\u{1b}[0m\nUser:\n\u{1b}[31mfoo2.service\u{1b}[0m\n"

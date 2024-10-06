@@ -1,5 +1,5 @@
 /// Format numeric value with K/M/G/T prefix
-pub fn format_kmgt(val: u64, unit: &str) -> String {
+pub(crate) fn format_kmgt(val: u64, unit: &str) -> String {
     const K: u64 = 1024;
     const M: u64 = K * 1024;
     const G: u64 = M * 1024;
@@ -18,7 +18,7 @@ pub fn format_kmgt(val: u64, unit: &str) -> String {
 }
 
 /// Format numeric value with k/M/G/T prefix
-pub fn format_kmgt_si(val: u64, unit: &str) -> String {
+pub(crate) fn format_kmgt_si(val: u64, unit: &str) -> String {
     const K_SI: u64 = 1000;
     const M_SI: u64 = K_SI * 1000;
     const G_SI: u64 = M_SI * 1000;

@@ -1,16 +1,15 @@
-use std::cmp;
-use std::fmt;
-use std::fs;
-use std::io::prelude::*;
-use std::net::TcpStream;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use std::{
+    cmp, fmt, fs,
+    io::prelude::*,
+    net::TcpStream,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
-use ansi_term::Colour::*;
+use ansi_term::Colour::{Red, Yellow};
 use anyhow::Context;
 
-use crate::config;
-use crate::ModuleData;
+use crate::{config, ModuleData};
 
 /// Type of temperature sensor
 #[derive(Debug, PartialEq, Eq)]
@@ -24,7 +23,7 @@ enum SensorType {
 }
 
 /// Temperature data
-pub struct SensorTemp {
+pub(crate) struct SensorTemp {
     /// Name of sensor
     name: String,
     /// Type of sensor
@@ -39,7 +38,7 @@ pub struct SensorTemp {
 }
 
 /// Deque of fetched temperature data
-pub struct HardwareTemps {
+pub(crate) struct HardwareTemps {
     temps: Vec<SensorTemp>,
 }
 
@@ -58,11 +57,12 @@ fn read_sysfs_string_value(filepath: &Path) -> anyhow::Result<String> {
     Ok(fs::read_to_string(filepath)
         .context(format!("Failed to read {filepath:?}"))?
         .trim_end()
-        .to_string())
+        .to_owned())
 }
 
 /// Probe temperatures from hwmon Linux sensors
-pub fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
+#[expect(clippy::string_slice, clippy::too_many_lines)]
+pub(crate) fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
     let mut temps = Vec::new();
 
     //
@@ -78,8 +78,8 @@ pub fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
         .sort_by_file_name()
         .into_iter()
         .filter_entry(|e| !e.path_is_symlink() && e.file_type().is_file())
-        .filter_map(|e| e.ok())
-        .map(|e| e.into_path())
+        .filter_map(Result::ok)
+        .map(walkdir::DirEntry::into_path)
         .filter(|p| re.is_match(p.file_name().unwrap().to_str().unwrap()))
     {
         let input_temp_filepath_str = input_temp_filepath.to_str().unwrap();
@@ -136,10 +136,10 @@ pub fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
         };
 
         // Read temp
+        #[expect(clippy::shadow_unrelated)]
         let input_temp_filepath = PathBuf::from(&format!("{filepath_prefix}_input"));
-        let temp_val = match read_sysfs_temp_value(&input_temp_filepath) {
-            Ok(v) => v,
-            Err(_) => continue,
+        let Ok(temp_val) = read_sysfs_temp_value(&input_temp_filepath) else {
+            continue;
         };
 
         // Read warning temp
@@ -217,9 +217,8 @@ pub fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
         for drive_data in drives_data.chunks_exact(5) {
             let drive_path = normalize_drive_path(&PathBuf::from(drive_data[1]))?;
             let pretty_name = drive_data[2];
-            let temp = match u32::from_str(drive_data[3]) {
-                Ok(t) => t,
-                Err(_) => continue,
+            let Ok(temp) = u32::from_str(drive_data[3]) else {
+                continue;
             };
 
             // Store temp
@@ -239,7 +238,7 @@ pub fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
 
 /// Normalize a drive device path by making it absolute and following links
 fn normalize_drive_path(path: &Path) -> anyhow::Result<PathBuf> {
-    let mut path_string: PathBuf = path.to_path_buf();
+    let mut path_string = path.to_path_buf();
     let fs_path = Path::new(path);
 
     if fs::symlink_metadata(path)?.file_type().is_symlink() {
@@ -302,21 +301,21 @@ mod tests {
                 HardwareTemps {
                     temps: vec![
                         SensorTemp {
-                            name: "sensor1".to_string(),
+                            name: "sensor1".to_owned(),
                             sensor_type: SensorType::Cpu,
                             temp: 95,
                             temp_warning: 70,
                             temp_critical: 80
                         },
                         SensorTemp {
-                            name: "sensor222222222".to_string(),
+                            name: "sensor222222222".to_owned(),
                             sensor_type: SensorType::Drive,
                             temp: 40,
                             temp_warning: 70,
                             temp_critical: 80
                         },
                         SensorTemp {
-                            name: "sensor333".to_string(),
+                            name: "sensor333".to_owned(),
                             sensor_type: SensorType::Other,
                             temp: 50,
                             temp_warning: 45,
@@ -331,25 +330,25 @@ mod tests {
 
     #[test]
     fn test_colorize_from_temp() {
-        assert_eq!(colorize_from_temp("hey".to_string(), 59, 60, 75), "hey");
+        assert_eq!(colorize_from_temp("hey".to_owned(), 59, 60, 75), "hey");
         assert_eq!(
-            colorize_from_temp("hey".to_string(), 60, 60, 75),
+            colorize_from_temp("hey".to_owned(), 60, 60, 75),
             "\u{1b}[33mhey\u{1b}[0m"
         );
         assert_eq!(
-            colorize_from_temp("hey".to_string(), 60, 60, 75),
+            colorize_from_temp("hey".to_owned(), 60, 60, 75),
             "\u{1b}[33mhey\u{1b}[0m"
         );
         assert_eq!(
-            colorize_from_temp("hey".to_string(), 74, 60, 75),
+            colorize_from_temp("hey".to_owned(), 74, 60, 75),
             "\u{1b}[33mhey\u{1b}[0m"
         );
         assert_eq!(
-            colorize_from_temp("hey".to_string(), 75, 60, 75),
+            colorize_from_temp("hey".to_owned(), 75, 60, 75),
             "\u{1b}[31mhey\u{1b}[0m"
         );
         assert_eq!(
-            colorize_from_temp("hey".to_string(), 76, 60, 75),
+            colorize_from_temp("hey".to_owned(), 76, 60, 75),
             "\u{1b}[31mhey\u{1b}[0m"
         );
     }

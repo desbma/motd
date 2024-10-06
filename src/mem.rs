@@ -1,21 +1,25 @@
-use std::collections::HashMap;
-use std::fmt;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::str::FromStr;
-use std::sync::atomic::Ordering;
+use std::{
+    collections::HashMap,
+    fmt,
+    fs::File,
+    io::{BufRead, BufReader},
+    str::FromStr,
+    sync::atomic::Ordering,
+};
 
 use ansi_term::Style;
 
-use crate::fmt::format_kmgt;
-use crate::module::{ModuleData, TERM_COLUMNS};
+use crate::{
+    fmt::format_kmgt,
+    module::{ModuleData, TERM_COLUMNS},
+};
 
-pub struct MemInfo {
+pub(crate) struct MemInfo {
     /// Map of memory usage info, unit is kB or page count
     vals: HashMap<String, u64>,
 }
 
-pub struct SwapInfo {
+pub(crate) struct SwapInfo {
     mem: MemInfo,
 }
 
@@ -26,7 +30,7 @@ impl From<MemInfo> for SwapInfo {
 }
 
 /// Fetch memory usage info from procfs
-pub fn fetch() -> anyhow::Result<ModuleData> {
+pub(crate) fn fetch() -> anyhow::Result<ModuleData> {
     let mut vals = HashMap::new();
     let file = File::open("/proc/meminfo")?;
     let reader = BufReader::new(file);
@@ -37,7 +41,7 @@ pub fn fetch() -> anyhow::Result<ModuleData> {
         let key = tokens_it
             .next()
             .ok_or_else(|| anyhow::anyhow!("Failed to parse memory info"))?
-            .to_string();
+            .to_owned();
         let val_str = tokens_it
             .next()
             .ok_or_else(|| anyhow::anyhow!("Failed to parse memory value"))?
@@ -146,12 +150,7 @@ fn display_bar(parts: &[BarPart], f: &mut dyn fmt::Write) -> fmt::Result {
 
 impl MemInfo {
     /// Print memory stat numbers
-    fn display_stats(
-        &self,
-        keys: Vec<&str>,
-        total_key: &str,
-        f: &mut dyn fmt::Write,
-    ) -> fmt::Result {
+    fn display_stats(&self, keys: &[&str], total_key: &str, f: &mut dyn fmt::Write) -> fmt::Result {
         let max_key_len = keys.iter().map(|x| x.len()).max().unwrap();
         let mac_size_str_len = keys
             .iter()
@@ -159,7 +158,7 @@ impl MemInfo {
             .max()
             .unwrap();
 
-        for &key in keys.iter() {
+        for &key in keys {
             let size_str = format_kmgt(self.vals[key] * 1024, "B");
             write!(
                 f,
@@ -187,7 +186,7 @@ impl fmt::Display for MemInfo {
     /// Output memory info
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.display_stats(
-            vec!["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"],
+            &["MemTotal", "MemFree", "Dirty", "Cached", "Buffers"],
             "MemTotal",
             f,
         )?;
@@ -202,7 +201,7 @@ impl fmt::Display for MemInfo {
 
         let used_prct = 100.0 * used_mem_mb as f32 / total_mem_mb as f32;
         let used_bar_text: Vec<String> = vec![
-            "Used".to_string(),
+            "Used".to_owned(),
             format!(" {:.1}GB", used_mem_mb as f32 / 1024.0),
             format!(" ({used_prct:.1}%)"),
         ];
@@ -216,7 +215,7 @@ impl fmt::Display for MemInfo {
 
         let cached_prct = 100.0 * (cache_mem_mb + buffer_mem_mb) as f32 / total_mem_mb as f32;
         let cached_bar_text: Vec<String> = vec![
-            "Cached".to_string(),
+            "Cached".to_owned(),
             format!(" {:.1}GB", (cache_mem_mb + buffer_mem_mb) as f32 / 1024.0),
             format!(" ({cached_prct:.1}%)"),
         ];
@@ -230,7 +229,7 @@ impl fmt::Display for MemInfo {
 
         let free_prct = 100.0 * free_mem_mb as f32 / total_mem_mb as f32;
         let free_bar_text: Vec<String> = vec![
-            "Free".to_string(),
+            "Free".to_owned(),
             format!(" {:.1}GB", free_mem_mb as f32 / 1024.0),
             format!(" ({free_prct:.1}%)"),
         ];
@@ -253,7 +252,7 @@ impl fmt::Display for SwapInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.mem.vals["SwapTotal"] > 0 {
             self.mem
-                .display_stats(vec!["SwapTotal", "SwapFree"], "SwapTotal", f)?;
+                .display_stats(&["SwapTotal", "SwapFree"], "SwapTotal", f)?;
 
             let total_swap_mb = self.mem.vals["SwapTotal"] / 1024;
             let free_swap_mb = self.mem.vals["SwapFree"] / 1024;
@@ -263,7 +262,7 @@ impl fmt::Display for SwapInfo {
 
             let used_prct = 100.0 * used_swap_mb as f32 / total_swap_mb as f32;
             let used_bar_text: Vec<String> = vec![
-                "Used".to_string(),
+                "Used".to_owned(),
                 format!(" {:.1}GB", used_swap_mb as f32 / 1024.0),
                 format!(" ({used_prct:.1}%)"),
             ];
@@ -277,7 +276,7 @@ impl fmt::Display for SwapInfo {
 
             let free_prct = 100.0 * free_swap_mb as f32 / total_swap_mb as f32;
             let free_bar_text: Vec<String> = vec![
-                "Swap free".to_string(),
+                "Swap free".to_owned(),
                 format!(" {:.1}GB", free_swap_mb as f32 / 1024.0),
                 format!(" ({free_prct:.1}%)"),
             ];
@@ -297,27 +296,26 @@ impl fmt::Display for SwapInfo {
 }
 
 #[cfg(test)]
+#[expect(clippy::shadow_unrelated)]
 mod tests {
-    use super::*;
-
-    use crate::module;
     use ansi_term::Colour::*;
-
     use serial_test::serial;
+
+    use super::*;
 
     #[test]
     #[serial]
     fn test_output_bar() {
         // Check rounding
-        module::TERM_COLUMNS.store(102, Ordering::SeqCst);
+        TERM_COLUMNS.store(102, Ordering::SeqCst);
         let mut f = String::new();
         display_bar(
             &[
                 BarPart {
                     label: vec![
-                        "part1".to_string(),
-                        "PART1".to_string(),
-                        "P_A_R_T_1".to_string(),
+                        "part1".to_owned(),
+                        "PART1".to_owned(),
+                        "P_A_R_T_1".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -326,9 +324,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part2".to_string(),
-                        "PART2".to_string(),
-                        "P_A_R_T_2".to_string(),
+                        "part2".to_owned(),
+                        "PART2".to_owned(),
+                        "P_A_R_T_2".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -337,9 +335,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part3".to_string(),
-                        "PART3".to_string(),
-                        "P_A_R_T_3".to_string(),
+                        "part3".to_owned(),
+                        "PART3".to_owned(),
+                        "P_A_R_T_3".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -360,9 +358,9 @@ mod tests {
             &[
                 BarPart {
                     label: vec![
-                        "part1".to_string(),
-                        "PART1".to_string(),
-                        "P_A_R_T_1".to_string(),
+                        "part1".to_owned(),
+                        "PART1".to_owned(),
+                        "P_A_R_T_1".to_owned(),
                     ],
                     prct: 20.34,
                     text_style: Style::new(),
@@ -371,9 +369,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part2".to_string(),
-                        "PART2".to_string(),
-                        "P_A_R_T_2".to_string(),
+                        "part2".to_owned(),
+                        "PART2".to_owned(),
+                        "P_A_R_T_2".to_owned(),
                     ],
                     prct: 30.32,
                     text_style: Style::new(),
@@ -382,9 +380,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part3".to_string(),
-                        "PART3".to_string(),
-                        "P_A_R_T_3".to_string(),
+                        "part3".to_owned(),
+                        "PART3".to_owned(),
+                        "P_A_R_T_3".to_owned(),
                     ],
                     prct: 48.33,
                     text_style: Style::new(),
@@ -405,9 +403,9 @@ mod tests {
             &[
                 BarPart {
                     label: vec![
-                        "part1".to_string(),
-                        "PART1".to_string(),
-                        "P_A_R_T_1".to_string(),
+                        "part1".to_owned(),
+                        "PART1".to_owned(),
+                        "P_A_R_T_1".to_owned(),
                     ],
                     prct: 20.5,
                     text_style: Style::new(),
@@ -416,9 +414,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part2".to_string(),
-                        "PART2".to_string(),
-                        "P_A_R_T_2".to_string(),
+                        "part2".to_owned(),
+                        "PART2".to_owned(),
+                        "P_A_R_T_2".to_owned(),
                     ],
                     prct: 30.6,
                     text_style: Style::new(),
@@ -427,9 +425,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part3".to_string(),
-                        "PART3".to_string(),
-                        "P_A_R_T_3".to_string(),
+                        "part3".to_owned(),
+                        "PART3".to_owned(),
+                        "P_A_R_T_3".to_owned(),
                     ],
                     prct: 48.9,
                     text_style: Style::new(),
@@ -445,15 +443,15 @@ mod tests {
             "▕part1PART1P_A_R_T_1#XXXXXXpart2PART2P_A_R_T_2XXXXXX%%%%%%%%%%%%%%%part3PART3P_A_R_T_3%%%%%%%%%%%%%%%▏\n"
         );
 
-        module::TERM_COLUMNS.store(80, Ordering::SeqCst);
+        TERM_COLUMNS.store(80, Ordering::SeqCst);
         f.clear();
         display_bar(
             &[
                 BarPart {
                     label: vec![
-                        "part1".to_string(),
-                        "PART1".to_string(),
-                        "P_A_R_T_1".to_string(),
+                        "part1".to_owned(),
+                        "PART1".to_owned(),
+                        "P_A_R_T_1".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -462,9 +460,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part2".to_string(),
-                        "PART2".to_string(),
-                        "P_A_R_T_2".to_string(),
+                        "part2".to_owned(),
+                        "PART2".to_owned(),
+                        "P_A_R_T_2".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -473,9 +471,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part3".to_string(),
-                        "PART3".to_string(),
-                        "P_A_R_T_3".to_string(),
+                        "part3".to_owned(),
+                        "PART3".to_owned(),
+                        "P_A_R_T_3".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -491,15 +489,15 @@ mod tests {
             "▕###part1PART1P_A_R_T_1####XXXpart2PART2P_A_R_T_2XXXX%%%part3PART3P_A_R_T_3%%%%▏\n"
         );
 
-        module::TERM_COLUMNS.store(50, Ordering::SeqCst);
+        TERM_COLUMNS.store(50, Ordering::SeqCst);
         f.clear();
         display_bar(
             &[
                 BarPart {
                     label: vec![
-                        "part1".to_string(),
-                        "PART1".to_string(),
-                        "P_A_R_T_1".to_string(),
+                        "part1".to_owned(),
+                        "PART1".to_owned(),
+                        "P_A_R_T_1".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -508,9 +506,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part2".to_string(),
-                        "PART2".to_string(),
-                        "P_A_R_T_2".to_string(),
+                        "part2".to_owned(),
+                        "PART2".to_owned(),
+                        "P_A_R_T_2".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -519,9 +517,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part3".to_string(),
-                        "PART3".to_string(),
-                        "P_A_R_T_3".to_string(),
+                        "part3".to_owned(),
+                        "PART3".to_owned(),
+                        "P_A_R_T_3".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -534,15 +532,15 @@ mod tests {
         .unwrap();
         assert_eq!(f, "▕###part1PART1###XXXpart2PART2XXX%%%part3PART3%%%▏\n");
 
-        module::TERM_COLUMNS.store(30, Ordering::SeqCst);
+        TERM_COLUMNS.store(30, Ordering::SeqCst);
         f.clear();
         display_bar(
             &[
                 BarPart {
                     label: vec![
-                        "part1".to_string(),
-                        "PART1".to_string(),
-                        "P_A_R_T_1".to_string(),
+                        "part1".to_owned(),
+                        "PART1".to_owned(),
+                        "P_A_R_T_1".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -551,9 +549,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part2".to_string(),
-                        "PART2".to_string(),
-                        "P_A_R_T_2".to_string(),
+                        "part2".to_owned(),
+                        "PART2".to_owned(),
+                        "P_A_R_T_2".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -562,9 +560,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part3".to_string(),
-                        "PART3".to_string(),
-                        "P_A_R_T_3".to_string(),
+                        "part3".to_owned(),
+                        "PART3".to_owned(),
+                        "P_A_R_T_3".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -577,15 +575,15 @@ mod tests {
         .unwrap();
         assert_eq!(f, "▕part1PART1XXpart2XX%%part3%%▏\n");
 
-        module::TERM_COLUMNS.store(15, Ordering::SeqCst);
+        TERM_COLUMNS.store(15, Ordering::SeqCst);
         f.clear();
         display_bar(
             &[
                 BarPart {
                     label: vec![
-                        "part1".to_string(),
-                        "PART1".to_string(),
-                        "P_A_R_T_1".to_string(),
+                        "part1".to_owned(),
+                        "PART1".to_owned(),
+                        "P_A_R_T_1".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -594,9 +592,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part2".to_string(),
-                        "PART2".to_string(),
-                        "P_A_R_T_2".to_string(),
+                        "part2".to_owned(),
+                        "PART2".to_owned(),
+                        "P_A_R_T_2".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -605,9 +603,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part3".to_string(),
-                        "PART3".to_string(),
-                        "P_A_R_T_3".to_string(),
+                        "part3".to_owned(),
+                        "PART3".to_owned(),
+                        "P_A_R_T_3".to_owned(),
                     ],
                     prct: 100.0 / 3.0,
                     text_style: Style::new(),
@@ -620,15 +618,15 @@ mod tests {
         .unwrap();
         assert_eq!(f, "▕part1XXXX%%%%▏\n");
 
-        module::TERM_COLUMNS.store(50, Ordering::SeqCst);
+        TERM_COLUMNS.store(50, Ordering::SeqCst);
         f.clear();
         display_bar(
             &[
                 BarPart {
                     label: vec![
-                        "part1".to_string(),
-                        "PART1".to_string(),
-                        "P_A_R_T_1".to_string(),
+                        "part1".to_owned(),
+                        "PART1".to_owned(),
+                        "P_A_R_T_1".to_owned(),
                     ],
                     prct: 15.0,
                     text_style: Style::new(),
@@ -637,9 +635,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part2".to_string(),
-                        "PART2".to_string(),
-                        "P_A_R_T_2".to_string(),
+                        "part2".to_owned(),
+                        "PART2".to_owned(),
+                        "P_A_R_T_2".to_owned(),
                     ],
                     prct: 20.0,
                     text_style: Style::new(),
@@ -648,9 +646,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part3".to_string(),
-                        "PART3".to_string(),
-                        "P_A_R_T_3".to_string(),
+                        "part3".to_owned(),
+                        "PART3".to_owned(),
+                        "P_A_R_T_3".to_owned(),
                     ],
                     prct: 65.0,
                     text_style: Style::new(),
@@ -668,9 +666,9 @@ mod tests {
             &[
                 BarPart {
                     label: vec![
-                        "part1".to_string(),
-                        "PART1".to_string(),
-                        "P_A_R_T_1".to_string(),
+                        "part1".to_owned(),
+                        "PART1".to_owned(),
+                        "P_A_R_T_1".to_owned(),
                     ],
                     prct: 15.0,
                     text_style: Red.bold(),
@@ -679,9 +677,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part2".to_string(),
-                        "PART2".to_string(),
-                        "P_A_R_T_2".to_string(),
+                        "part2".to_owned(),
+                        "PART2".to_owned(),
+                        "P_A_R_T_2".to_owned(),
                     ],
                     prct: 20.0,
                     text_style: Yellow.dimmed(),
@@ -690,9 +688,9 @@ mod tests {
                 },
                 BarPart {
                     label: vec![
-                        "part3".to_string(),
-                        "PART3".to_string(),
-                        "P_A_R_T_3".to_string(),
+                        "part3".to_owned(),
+                        "PART3".to_owned(),
+                        "P_A_R_T_3".to_owned(),
                     ],
                     prct: 65.0,
                     text_style: Blue.reverse(),
@@ -712,19 +710,15 @@ mod tests {
     #[test]
     fn test_output_mem_stats() {
         let mut vals = HashMap::new();
-        vals.insert("stat1".to_string(), 123);
-        vals.insert("stat22222222".to_string(), 1234567);
-        vals.insert("stat3333".to_string(), 123456789);
-        vals.insert("itsatrap".to_string(), 999);
+        vals.insert("stat1".to_owned(), 123);
+        vals.insert("stat22222222".to_owned(), 1_234_567);
+        vals.insert("stat3333".to_owned(), 123_456_789);
+        vals.insert("itsatrap".to_owned(), 999);
         let mem_info = MemInfo { vals };
 
         let mut f = String::new();
         mem_info
-            .display_stats(
-                vec!["stat1", "stat22222222", "stat3333"],
-                "stat3333",
-                &mut f,
-            )
+            .display_stats(&["stat1", "stat22222222", "stat3333"], "stat3333", &mut f)
             .unwrap();
         assert_eq!(
             f,
@@ -736,21 +730,21 @@ mod tests {
     #[serial]
     fn test_output_mem() {
         let mut vals = HashMap::new();
-        vals.insert("MemTotal".to_string(), 12345);
-        vals.insert("MemFree".to_string(), 1234);
-        vals.insert("Dirty".to_string(), 2134);
-        vals.insert("Cached".to_string(), 3124);
-        vals.insert("Buffers".to_string(), 4321);
-        vals.insert("itsatrap".to_string(), 1024);
+        vals.insert("MemTotal".to_owned(), 12345);
+        vals.insert("MemFree".to_owned(), 1234);
+        vals.insert("Dirty".to_owned(), 2134);
+        vals.insert("Cached".to_owned(), 3124);
+        vals.insert("Buffers".to_owned(), 4321);
+        vals.insert("itsatrap".to_owned(), 1024);
         let mem_info = MemInfo { vals };
 
-        module::TERM_COLUMNS.store(80, Ordering::SeqCst);
+        TERM_COLUMNS.store(80, Ordering::SeqCst);
         assert_eq!(
             format!("{}", &mem_info),
             "MemTotal: 12.1 MB\nMemFree:   1.2 MB (10.0%)\nDirty:     2.1 MB (17.3%)\nCached:    3.1 MB (25.3%)\nBuffers:   4.2 MB (35.0%)\n▕████\u{1b}[7mUsed 0.0GB (33.3%)\u{1b}[0m████\u{1b}[2m█████████████\u{1b}[0m\u{1b}[2;7mCached 0.0GB (58.3%)\u{1b}[0m\u{1b}[2m█████████████\u{1b}[0m Free ▏\n"
         );
 
-        module::TERM_COLUMNS.store(30, Ordering::SeqCst);
+        TERM_COLUMNS.store(30, Ordering::SeqCst);
         assert_eq!(
             format!("{}", &mem_info),
             "MemTotal: 12.1 MB\nMemFree:   1.2 MB (10.0%)\nDirty:     2.1 MB (17.3%)\nCached:    3.1 MB (25.3%)\nBuffers:   4.2 MB (35.0%)\n▕██\u{1b}[7mUsed\u{1b}[0m███\u{1b}[2m██\u{1b}[0m\u{1b}[2;7mCached 0.0GB\u{1b}[0m\u{1b}[2m██\u{1b}[0m   ▏\n"
@@ -761,28 +755,28 @@ mod tests {
     #[serial]
     fn test_output_swap() {
         let mut vals = HashMap::new();
-        vals.insert("SwapTotal".to_string(), 12345678);
-        vals.insert("SwapFree".to_string(), 2345678);
-        vals.insert("itsatrap".to_string(), 1024);
+        vals.insert("SwapTotal".to_owned(), 12_345_678);
+        vals.insert("SwapFree".to_owned(), 2_345_678);
+        vals.insert("itsatrap".to_owned(), 1024);
         let mem_info = MemInfo { vals };
         let swap_info = SwapInfo::from(mem_info);
 
-        module::TERM_COLUMNS.store(80, Ordering::SeqCst);
+        TERM_COLUMNS.store(80, Ordering::SeqCst);
         assert_eq!(
             format!("{}", &swap_info),
             "SwapTotal: 11.8 GB\nSwapFree:   2.2 GB (19.0%)\n▕██████████████████████\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███████████████████████Swap free 2.2GB▏\n"
         );
 
-        module::TERM_COLUMNS.store(30, Ordering::SeqCst);
+        TERM_COLUMNS.store(30, Ordering::SeqCst);
         assert_eq!(
             format!("{}", &swap_info),
             "SwapTotal: 11.8 GB\nSwapFree:   2.2 GB (19.0%)\n▕██\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███     ▏\n"
         );
 
         let mut vals = HashMap::new();
-        vals.insert("SwapTotal".to_string(), 0);
-        vals.insert("SwapFree".to_string(), 0);
-        vals.insert("itsatrap".to_string(), 1024);
+        vals.insert("SwapTotal".to_owned(), 0);
+        vals.insert("SwapFree".to_owned(), 0);
+        vals.insert("itsatrap".to_owned(), 1024);
         let mem_info = MemInfo { vals };
         let swap_info = SwapInfo::from(mem_info);
 

@@ -1,14 +1,15 @@
-use std::collections::BTreeMap;
-use std::fmt;
-use std::fs::{self, DirEntry, File};
-use std::io::{Read, Seek};
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::{
+    collections::BTreeMap,
+    fmt,
+    fs::{self, DirEntry, File},
+    io::{Read, Seek},
+    thread::sleep,
+    time::{Duration, Instant},
+};
 
-use ansi_term::Colour::*;
+use ansi_term::Colour::{Red, Yellow};
 
-use crate::fmt::format_kmgt_si;
-use crate::module::ModuleData;
+use crate::{fmt::format_kmgt_si, module::ModuleData};
 
 /// Network interface pending stats
 struct PendingInterfaceStats {
@@ -29,7 +30,8 @@ struct PendingInterfaceStats {
 type NetworkPendingStats = BTreeMap<String, PendingInterfaceStats>;
 
 /// Network interface stats
-pub struct InterfaceStats {
+#[expect(clippy::struct_field_names)]
+pub(crate) struct InterfaceStats {
     /// Rx bits/s
     rx_bps: u64,
     /// Tx bits/s
@@ -38,18 +40,19 @@ pub struct InterfaceStats {
     line_bps: Option<u64>,
 }
 
-pub struct NetworkStats {
+pub(crate) struct NetworkStats {
     interfaces: BTreeMap<String, InterfaceStats>,
 }
 
 const MIN_DELAY_BETWEEN_NET_SAMPLES_MS: u64 = 30;
 
-pub fn fetch() -> anyhow::Result<ModuleData> {
+pub(crate) fn fetch() -> anyhow::Result<ModuleData> {
     let mut sample = get_network_stats()?;
     let stats = update_network_stats(&mut sample)?;
     Ok(ModuleData::Network(stats))
 }
 
+#[expect(clippy::verbose_file_reads)]
 fn read_interface_stats(
     rx_bytes_file: &mut File,
     tx_bytes_file: &mut File,
@@ -74,7 +77,7 @@ fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
         .collect();
     dir_entries.sort_by_key(DirEntry::file_name);
     for dir_entry in dir_entries {
-        let itf_name = dir_entry.file_name().to_os_string().into_string().unwrap();
+        let itf_name = dir_entry.file_name().clone().into_string().unwrap();
         if itf_name == "lo" {
             continue;
         }
@@ -92,19 +95,16 @@ fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
             /* tun always report 10 Mbps even if we can exceed that limit */
             None
         } else {
-            match File::open(itf_dir.join("speed")) {
-                Ok(mut speed_file) => {
-                    let mut speed_str = String::new();
-                    match speed_file.read_to_string(&mut speed_str) {
-                        Ok(_) => match speed_str.trim_end().parse::<u64>() {
-                            Ok(speed) => Some(speed * 1_000_000),
-                            Err(_) => None, // Some interfaces (bridges) report -1
-                        },
-                        Err(_) => None,
-                    }
-                }
-                Err(_) => None,
-            }
+            fs::read_to_string(itf_dir.join("speed"))
+                .ok()
+                .and_then(|speed_str| {
+                    speed_str
+                        .trim_end()
+                        // Some interfaces (bridges) report -1
+                        .parse::<u64>()
+                        .map(|speed| speed * 1_000_000)
+                        .ok()
+                })
         };
 
         stats.insert(
@@ -176,11 +176,11 @@ fn colorize_speed(val: u64, line_rate: Option<u64>, s: String) -> String {
 
 impl fmt::Display for NetworkStats {
     /// Output network stats
+    #[expect(clippy::similar_names)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let unit = "b/s";
-        let max_itf_len = match self.interfaces.keys().map(|k| k.len()).max() {
-            Some(m) => m,
-            None => return Ok(()),
+        let Some(max_itf_len) = self.interfaces.keys().map(String::len).max() else {
+            return Ok(());
         };
         let mac_rx_str_len = self
             .interfaces
@@ -225,7 +225,7 @@ mod tests {
     fn test_output_network_stats() {
         let mut stats = BTreeMap::new();
         stats.insert(
-            "i1".to_string(),
+            "i1".to_owned(),
             InterfaceStats {
                 rx_bps: 1,
                 tx_bps: 1_234_567,
@@ -233,7 +233,7 @@ mod tests {
             },
         );
         stats.insert(
-            "interface2".to_string(),
+            "interface2".to_owned(),
             InterfaceStats {
                 rx_bps: 1_234_567_890,
                 tx_bps: 1_234,
@@ -241,7 +241,7 @@ mod tests {
             },
         );
         stats.insert(
-            "itf3".to_string(),
+            "itf3".to_owned(),
             InterfaceStats {
                 rx_bps: 799_999,
                 tx_bps: 800_000,
@@ -249,7 +249,7 @@ mod tests {
             },
         );
         stats.insert(
-            "itf4".to_string(),
+            "itf4".to_owned(),
             InterfaceStats {
                 rx_bps: 900_000,
                 tx_bps: 899_999,
@@ -257,7 +257,7 @@ mod tests {
             },
         );
         stats.insert(
-            "itf5".to_string(),
+            "itf5".to_owned(),
             InterfaceStats {
                 rx_bps: 900_000_001,
                 tx_bps: 800_000_001,

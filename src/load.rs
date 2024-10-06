@@ -1,16 +1,12 @@
-use std::fmt;
-use std::fs::File;
-use std::io::prelude::*;
-use std::str::FromStr;
-use std::sync::atomic::Ordering;
+use std::{fmt, fs, str::FromStr, sync::atomic::Ordering};
 
-use ansi_term::Colour::*;
+use ansi_term::Colour::{Red, Yellow};
 
 use crate::module::{ModuleData, CPU_COUNT};
 
 /// Names of failed Systemd units
 #[derive(Debug)]
-pub struct LoadInfo {
+pub(crate) struct LoadInfo {
     /// Load average 1 minute
     load_avg_1m: f32,
     /// Load average 5 minutes
@@ -22,10 +18,9 @@ pub struct LoadInfo {
 }
 
 /// Fetch load information from /proc/loadavg
-pub fn fetch() -> anyhow::Result<ModuleData> {
-    let mut file = File::open("/proc/loadavg")?;
-    let mut line = String::new();
-    file.read_to_string(&mut line)?;
+#[expect(clippy::similar_names)]
+pub(crate) fn fetch() -> anyhow::Result<ModuleData> {
+    let line = fs::read_to_string("/proc/loadavg")?;
 
     let mut tokens_it = line.split(' ');
     let load_avg_1m = f32::from_str(
@@ -91,11 +86,9 @@ fn colorize_load(load: f32, cpu_count: usize) -> String {
 mod tests {
     use super::*;
 
-    use crate::module;
-
     #[test]
     fn test_output_load_info() {
-        module::CPU_COUNT.store(3, Ordering::SeqCst);
+        CPU_COUNT.store(3, Ordering::SeqCst);
         assert_eq!(
             format!(
                 "{}",
