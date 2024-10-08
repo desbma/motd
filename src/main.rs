@@ -50,10 +50,7 @@ const FALLBACK_TERM_COLUMNS: usize = 80;
 const LOADING_MSG: &str = "Loading…";
 
 /// Output section header to stdout
-fn output_title(title: &str, columns: usize, new_line: bool) {
-    if new_line {
-        println!();
-    }
+fn output_title(title: &str, columns: usize) {
     println!("{:─^width$}", format!(" {title} "), width = columns);
 }
 
@@ -62,7 +59,6 @@ fn output_section(
     title: &str,
     lines: Result<String, String>,
     show_title: bool,
-    first_section: bool,
     delayed: bool,
     columns: usize,
 ) {
@@ -73,11 +69,8 @@ fn output_section(
         Ok(lines) => {
             if !lines.is_empty() {
                 if show_title {
-                    output_title(title, columns, !first_section);
-                } else if !first_section {
-                    println!();
+                    output_title(title, columns);
                 }
-
                 print!("{lines}");
             }
         }
@@ -274,11 +267,7 @@ fn main() -> anyhow::Result<()> {
             section_futs.push(section_fut);
         }
 
-        for (i, (section_fut, section)) in section_futs
-            .into_iter()
-            .zip(cl_args.sections.iter())
-            .enumerate()
-        {
+        for (section_fut, section) in section_futs.into_iter().zip(cl_args.sections.iter()) {
             let delayed = !section_fut.is_finished();
             if delayed {
                 eprint!("{LOADING_MSG}");
@@ -292,7 +281,6 @@ fn main() -> anyhow::Result<()> {
                 pretty_section_name(section),
                 lines,
                 cl_args.show_section_titles,
-                i == 0,
                 delayed,
                 cl_args.term_columns,
             );
