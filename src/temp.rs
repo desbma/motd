@@ -18,8 +18,8 @@ enum SensorType {
     Cpu,
     /// Hard drive or SSD/NVM sensor
     Drive,
-    /// Other sensors (typically motherboard)
-    Other,
+    /// Other sensors (typically motherboard), or we just have no clue
+    OtherOrUnknown,
 }
 
 /// Temperature data
@@ -99,28 +99,27 @@ pub(crate) fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
             None
         };
 
+        // Get sensor driver name
+        let name_filepath = input_temp_filepath.with_file_name("name");
+        let name = read_sysfs_string_value(&name_filepath)?;
+
         // Deduce type from name
         let sensor_type = if let Some(label) = label.as_ref() {
             if label.starts_with("CPU ") || label.starts_with("Core ") {
                 SensorType::Cpu
             } else {
-                SensorType::Other
+                SensorType::OtherOrUnknown
             }
+        } else if name == "drivetemp" {
+            SensorType::Drive
         } else {
-            let name_filepath = input_temp_filepath.with_file_name("name");
-            let name = read_sysfs_string_value(&name_filepath)?;
-            if name == "drivetemp" {
-                SensorType::Drive
-            } else {
-                continue;
-            }
+            SensorType::OtherOrUnknown
         };
 
         // Set drivetemp label
-        let label = if let Some(label) = label {
+        let sensor_name = if let Some(label) = label {
             label
-        } else {
-            assert_eq!(sensor_type, SensorType::Drive);
+        } else if sensor_type == SensorType::Drive {
             let model_filepath = input_temp_filepath.with_file_name("device/model");
             let model = read_sysfs_string_value(&model_filepath)?;
             let block_dirpath = input_temp_filepath.with_file_name("device/block");
@@ -133,6 +132,8 @@ pub(crate) fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
                 .into_string()
                 .map_err(|e| anyhow::anyhow!("Unable to decode {:?}", e))?;
             format!("{block_device_name} ({model})")
+        } else {
+            name
         };
 
         // Read temp
@@ -161,9 +162,9 @@ pub(crate) fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
             let abs_diff = crit_temp_val - max_temp_val;
             let delta = match sensor_type {
                 SensorType::Cpu => abs_diff / 2,
-                SensorType::Drive | SensorType::Other => 5,
+                SensorType::Drive | SensorType::OtherOrUnknown => 5,
             };
-            if let SensorType::Other = sensor_type {
+            if let SensorType::OtherOrUnknown = sensor_type {
                 if abs_diff > 20 {
                     max_temp_val = crit_temp_val - 20;
                 }
@@ -173,7 +174,7 @@ pub(crate) fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
         } else if let Some(max_temp_val) = max_temp_val {
             let delta = match sensor_type {
                 SensorType::Cpu => 10,
-                SensorType::Drive | SensorType::Other => 5,
+                SensorType::Drive | SensorType::OtherOrUnknown => 5,
             };
             warning_temp = max_temp_val - delta;
             crit_temp = max_temp_val;
@@ -181,18 +182,18 @@ pub(crate) fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
             warning_temp = match sensor_type {
                 // Fallback to default value
                 SensorType::Cpu => 60,
-                SensorType::Drive | SensorType::Other => 50,
+                SensorType::Drive | SensorType::OtherOrUnknown => 50,
             };
             crit_temp = match sensor_type {
                 // Fallback to default value
                 SensorType::Cpu => 75,
-                SensorType::Drive | SensorType::Other => 60,
+                SensorType::Drive | SensorType::OtherOrUnknown => 60,
             };
         }
 
         // Store temp
         let sensor_temp = SensorTemp {
-            name: label,
+            name: sensor_name,
             sensor_type,
             temp: temp_val,
             temp_warning: warning_temp,
@@ -316,7 +317,7 @@ mod tests {
                         },
                         SensorTemp {
                             name: "sensor333".to_owned(),
-                            sensor_type: SensorType::Other,
+                            sensor_type: SensorType::OtherOrUnknown,
                             temp: 50,
                             temp_warning: 45,
                             temp_critical: 60

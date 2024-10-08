@@ -30,6 +30,7 @@ pub(crate) struct TempConfig {
     /// Exclude temp probes label (/sys/class/hwmon/hwmon*/temp*_label files) matching any of theses regexs
     #[serde(with = "serde_regex")]
     pub hwmon_label_blacklist: Vec<regex::Regex>,
+    // TODO blacklist for names too (/sys/class/hwmon/hwmon*/name)?
 }
 
 /// Parse local configuration
