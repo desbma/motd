@@ -1,6 +1,6 @@
 //! MOTD banner generator
 
-use std::{cmp, iter::Iterator, str::FromStr, sync::atomic::Ordering, thread};
+use std::{cmp, iter::Iterator, path::Path, str::FromStr, sync::atomic::Ordering, thread};
 
 use ansi_term::Colour::Red;
 use anyhow::Context;
@@ -147,7 +147,16 @@ fn parse_cl_args() -> CLArgs {
     .into_iter()
     .map(section_to_letter)
     .collect();
-    let default_sections_string = sections_str.join(",");
+    let default_sections_string = sections_str
+        .iter()
+        .filter(|l| {
+            if **l == "u" {
+                Path::new("/run/systemd/system").is_dir()
+            } else {
+                true
+            }
+        })
+        .join(",");
 
     // Clap arg matching
     let matches = App::new("motd")
