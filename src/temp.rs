@@ -55,7 +55,7 @@ fn read_sysfs_temp_value(filepath: &Path) -> anyhow::Result<u32> {
 /// Read string from a given sysfs file
 fn read_sysfs_string_value(filepath: &Path) -> anyhow::Result<String> {
     Ok(fs::read_to_string(filepath)
-        .context(format!("Failed to read {filepath:?}"))?
+        .with_context(|| format!("Failed to read {filepath:?}"))?
         .trim_end()
         .to_owned())
 }
