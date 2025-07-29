@@ -2,7 +2,7 @@ use std::{
     collections::BTreeMap,
     fmt,
     fs::{self, DirEntry, File},
-    io::{Read, Seek},
+    io::{Read as _, Seek as _},
     thread::sleep,
     time::{Duration, Instant},
 };
@@ -95,16 +95,13 @@ fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
             /* tun always report 10 Mbps even if we can exceed that limit */
             None
         } else {
-            fs::read_to_string(itf_dir.join("speed"))
+            let speed_str = fs::read_to_string(itf_dir.join("speed"))?;
+            speed_str
+                .trim_end()
+                // Some interfaces (bridges) report -1
+                .parse::<u64>()
+                .map(|speed| speed * 1_000_000)
                 .ok()
-                .and_then(|speed_str| {
-                    speed_str
-                        .trim_end()
-                        // Some interfaces (bridges) report -1
-                        .parse::<u64>()
-                        .map(|speed| speed * 1_000_000)
-                        .ok()
-                })
         };
 
         stats.insert(
@@ -147,7 +144,7 @@ fn update_network_stats(pending_stats: &mut NetworkPendingStats) -> anyhow::Resu
         let rx_bps = 1000 * (rx_bytes2 - pending_itf_stats.rx_bytes) * 8 / ts_delta_ms as u64;
         let tx_bps = 1000 * (tx_bytes2 - pending_itf_stats.tx_bytes) * 8 / ts_delta_ms as u64;
         stats.insert(
-            itf_name.to_string(),
+            itf_name.clone(),
             InterfaceStats {
                 rx_bps,
                 tx_bps,

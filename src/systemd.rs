@@ -1,6 +1,6 @@
 use std::{
     fmt,
-    io::BufRead,
+    io::BufRead as _,
     process::{Command, Stdio},
     thread,
 };

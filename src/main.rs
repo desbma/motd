@@ -1,11 +1,13 @@
 //! MOTD banner generator
 
-use std::{cmp, iter::Iterator, path::Path, str::FromStr, sync::atomic::Ordering, thread};
+use std::{
+    cmp, iter::Iterator as _, path::Path, str::FromStr as _, sync::atomic::Ordering, thread,
+};
 
 use ansi_term::Colour::Red;
-use anyhow::Context;
+use anyhow::Context as _;
 use clap::{App, Arg};
-use itertools::Itertools;
+use itertools::Itertools as _;
 
 use crate::module::ModuleData;
 

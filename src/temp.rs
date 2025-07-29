@@ -3,11 +3,11 @@ use std::{
     io::prelude::*,
     net::TcpStream,
     path::{Path, PathBuf},
-    str::FromStr,
+    str::FromStr as _,
 };
 
 use ansi_term::Colour::{Red, Yellow};
-use anyhow::Context;
+use anyhow::Context as _;
 
 use crate::{config, ModuleData};
 

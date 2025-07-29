@@ -3,7 +3,7 @@ use std::{
     collections::HashSet,
     ffi::{CStr, CString, OsStr},
     fmt, io, mem,
-    os::unix::ffi::OsStrExt,
+    os::unix::ffi::OsStrExt as _,
     path::{Path, PathBuf},
     sync::atomic::Ordering,
 };
@@ -116,7 +116,7 @@ fn fetch_mount_info(mount_path: &Path) -> Result<FsMountInfo, io::Error> {
     let mut fs_stat: statvfs = unsafe { mem::zeroed() };
     let mount_point = CString::new(mount_path.as_os_str().as_bytes())?;
     // SAFETY: libc call
-    let rc = unsafe { statvfs(mount_point.as_ptr(), &mut fs_stat) };
+    let rc = unsafe { statvfs(mount_point.as_ptr(), &raw mut fs_stat) };
     if rc != 0 {
         return Err(io::Error::last_os_error());
     }

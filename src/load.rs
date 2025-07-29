@@ -1,4 +1,4 @@
-use std::{fmt, fs, str::FromStr, sync::atomic::Ordering};
+use std::{fmt, fs, str::FromStr as _, sync::atomic::Ordering};
 
 use ansi_term::Colour::{Red, Yellow};
 

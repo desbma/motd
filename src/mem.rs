@@ -2,8 +2,8 @@ use std::{
     collections::HashMap,
     fmt,
     fs::File,
-    io::{BufRead, BufReader},
-    str::FromStr,
+    io::{BufRead as _, BufReader},
+    str::FromStr as _,
     sync::atomic::Ordering,
 };
 
