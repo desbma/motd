@@ -21,18 +21,18 @@ serial_test = { version = "3.2.0", default-features = false }
 
 [dependencies]
 ansi_term = { version = "0.12.1", default-features = false }
-anyhow = { version = "1.0.95", default-features = false, features = ["std", "backtrace"] }
+anyhow = { version = "1.0.98", default-features = false, features = ["std", "backtrace"] }
 clap =  { version = "3.2.25", default-features = false, features = ["std", "color"] }
-itertools =  { version = "0.13.0", default-features = false, features = ["use_std"] }
-libc =  { version = "0.2.169", default-features = false }
-num_cpus =  { version = "1.16.0", default-features = false }
+itertools =  { version = "0.14.0", default-features = false, features = ["use_std"] }
+libc =  { version = "0.2.174", default-features = false }
+num_cpus =  { version = "1.17.0", default-features = false }
 regex = { version = "1.11.1", default-features = false, features = ["std"] }
-serde = { version = "1.0.217", default-features = false, features = ["derive", "std"] }
+serde = { version = "1.0.219", default-features = false, features = ["derive", "std"] }
 serde_regex = { version = "1.1.0", default-features = false }
 termsize =  { version = "0.1.9", default-features = false }
 toml = { version = "0.8.19", default-features = false, features = ["parse"] }
 walkdir = { version = "2.5.0", default-features = false }
-xdg = { version = "2.5.2", default-features = false }
+xdg = { version = "3.0.0", default-features = false }
 
 [lints.rust]
 # https://doc.rust-lang.org/rustc/lints/listing/allowed-by-default.html

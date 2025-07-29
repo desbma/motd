@@ -36,7 +36,7 @@ pub(crate) struct TempConfig {
 /// Parse local configuration
 pub(crate) fn parse_config() -> anyhow::Result<Config> {
     let binary_name = env!("CARGO_PKG_NAME");
-    let xdg_dirs = xdg::BaseDirectories::with_prefix(binary_name)?;
+    let xdg_dirs = xdg::BaseDirectories::with_prefix(binary_name);
     let config = if let Some(config_filepath) = xdg_dirs.find_config_file("config.toml") {
         let toml_data = std::fs::read_to_string(config_filepath)?;
         toml::from_str(&toml_data)?
