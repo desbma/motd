@@ -81,10 +81,10 @@ pub(crate) fn fetch(cfg: &config::FsConfig) -> anyhow::Result<ModuleData> {
 
         // Exclude mounts of devices already mounted (avoids duplicate for bind mounts or btrfs subvolumes)
         if fs_dev.starts_with('/') {
-            if known_devices.contains(&fs_dev) {
+            if known_devices.contains(fs_dev) {
                 continue;
             }
-            known_devices.insert(fs_dev);
+            known_devices.insert(fs_dev.to_owned());
         }
 
         // Get filesystem info
