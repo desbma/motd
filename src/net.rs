@@ -95,13 +95,16 @@ fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
             /* tun always report 10 Mbps even if we can exceed that limit */
             None
         } else {
-            let speed_str = fs::read_to_string(itf_dir.join("speed"))?;
-            speed_str
-                .trim_end()
-                // Some interfaces (bridges) report -1
-                .parse::<u64>()
-                .map(|speed| speed * 1_000_000)
+            #[expect(clippy::return_and_then)]
+            fs::read_to_string(itf_dir.join("speed"))
                 .ok()
+                .and_then(|s| {
+                    s.trim_end()
+                        // Some interfaces (bridges) report -1
+                        .parse::<u64>()
+                        .map(|speed| speed * 1_000_000)
+                        .ok()
+                })
         };
 
         stats.insert(
