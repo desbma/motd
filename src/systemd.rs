@@ -5,7 +5,7 @@ use std::{
     thread,
 };
 
-use ansi_term::Colour::Red;
+use nu_ansi_term::Color::Red;
 
 use crate::module::ModuleData;
 
@@ -30,7 +30,7 @@ pub(crate) fn fetch() -> anyhow::Result<ModuleData> {
     Ok(ModuleData::Systemd(FailedUnits {
         system: system_fut
             .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??,
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??,
         user,
     }))
 }

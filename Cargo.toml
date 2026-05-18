@@ -17,20 +17,20 @@ inherits = "release"
 opt-level = "z"
 
 [dev-dependencies]
-serial_test = { version = "3.2.0", default-features = false }
+serial_test = { version = "3.4.0", default-features = false }
 
 [dependencies]
-ansi_term = { version = "0.12.1", default-features = false }
-anyhow = { version = "1.0.98", default-features = false, features = ["std", "backtrace"] }
-clap =  { version = "3.2.25", default-features = false, features = ["std", "color"] }
+anyhow = { version = "1.0.102", default-features = false, features = ["std", "backtrace"] }
+clap =  { version = "4.6.1", default-features = false, features = ["std", "color", "help", "usage", "error-context"] }
 itertools =  { version = "0.14.0", default-features = false, features = ["use_std"] }
-libc =  { version = "0.2.174", default-features = false }
+libc =  { version = "0.2.186", default-features = false }
+nu-ansi-term = { version = "0.50.3", default-features = false }
 num_cpus =  { version = "1.17.0", default-features = false }
-regex = { version = "1.11.1", default-features = false, features = ["std"] }
-serde = { version = "1.0.219", default-features = false, features = ["derive", "std"] }
+regex = { version = "1.12.3", default-features = false, features = ["std"] }
+serde = { version = "1.0.228", default-features = false, features = ["derive", "std"] }
 serde_regex = { version = "1.1.0", default-features = false }
 termsize =  { version = "0.1.9", default-features = false }
-toml = { version = "0.8.19", default-features = false, features = ["parse"] }
+toml = { version = "1.1.2", default-features = false, features = ["parse", "serde", "std"] }
 walkdir = { version = "2.5.0", default-features = false }
 xdg = { version = "3.0.0", default-features = false }
 

@@ -6,8 +6,8 @@ use std::{
     str::FromStr as _,
 };
 
-use ansi_term::Colour::{Red, Yellow};
 use anyhow::Context as _;
+use nu_ansi_term::Color::{Red, Yellow};
 
 use crate::{config, ModuleData};
 
@@ -126,11 +126,11 @@ pub(crate) fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
             let block_device_name = fs::read_dir(&block_dirpath)?
                 .next()
                 .ok_or_else(|| {
-                    anyhow::anyhow!("Unable to get block device from {:?}", block_dirpath)
+                    anyhow::anyhow!("Unable to get block device from {block_dirpath:?}")
                 })??
                 .file_name()
                 .into_string()
-                .map_err(|e| anyhow::anyhow!("Unable to decode {:?}", e))?;
+                .map_err(|e| anyhow::anyhow!("Unable to decode {e:?}"))?;
             format!("{block_device_name} ({model})")
         } else {
             name

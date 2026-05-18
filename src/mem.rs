@@ -7,7 +7,7 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use ansi_term::Style;
+use nu_ansi_term::Style;
 
 use crate::{
     fmt::format_kmgt,
@@ -298,7 +298,7 @@ impl fmt::Display for SwapInfo {
 #[cfg(test)]
 #[expect(clippy::shadow_unrelated)]
 mod tests {
-    use ansi_term::Colour::*;
+    use nu_ansi_term::Color::{Blue, Red, Yellow};
     use serial_test::serial;
 
     use super::*;

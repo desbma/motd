@@ -1,13 +1,11 @@
 //! MOTD banner generator
 
-use std::{
-    cmp, iter::Iterator as _, path::Path, str::FromStr as _, sync::atomic::Ordering, thread,
-};
+use std::{cmp, iter::Iterator as _, path::Path, sync::atomic::Ordering, thread};
 
-use ansi_term::Colour::Red;
 use anyhow::Context as _;
-use clap::{App, Arg};
+use clap::{builder::PossibleValuesParser, value_parser, Arg, ArgAction, Command};
 use itertools::Itertools as _;
+use nu_ansi_term::Color::Red;
 
 use crate::module::ModuleData;
 
@@ -125,14 +123,6 @@ fn letter_to_section(letter: &str) -> Section {
     }
 }
 
-/// Validate a isize integer string for Clap usage
-fn validator_isize(s: &str) -> Result<(), String> {
-    match isize::from_str(s) {
-        Ok(_) => Ok(()),
-        Err(_) => Err("Not a valid integer value".to_owned()),
-    }
-}
-
 /// Parse and validate command line arguments
 fn parse_cl_args() -> CLArgs {
     // Default values
@@ -161,19 +151,18 @@ fn parse_cl_args() -> CLArgs {
         .join(",");
 
     // Clap arg matching
-    let matches = App::new("motd")
+    let matches = Command::new("motd")
         .version(env!("CARGO_PKG_VERSION"))
         .about("Show dynamic summary of system information")
         .author("desbma")
         .arg(
-            Arg::with_name("SECTIONS")
+            Arg::new("SECTIONS")
                 .short('s')
                 .long("sections")
-                .takes_value(true)
-                .multiple(true)
-                .use_delimiter(true)
-                .default_value(&default_sections_string)
-                .possible_values(&sections_str)
+                .action(ArgAction::Append)
+                .value_delimiter(',')
+                .value_parser(PossibleValuesParser::new(&sections_str))
+                .default_value(default_sections_string.leak() as &'static str)
                 .help(
                     "Sections to display. \
                      l: System load. \
@@ -186,31 +175,31 @@ fn parse_cl_args() -> CLArgs {
                 ),
         )
         .arg(
-            Arg::with_name("NO_TITLES")
+            Arg::new("NO_TITLES")
                 .short('n')
                 .long("no-titles")
+                .action(ArgAction::SetTrue)
                 .help("Do not display section titles."),
         )
         .arg(
-            Arg::with_name("COLUMNS")
+            Arg::new("COLUMNS")
                 .short('c')
                 .long("columns")
-                .takes_value(true)
                 .allow_hyphen_values(true)
-                    .validator(validator_isize)
-                .default_value(&default_term_columns_string)
+                .value_parser(value_parser!(isize))
+                .default_value(default_term_columns_string.leak() as &'static str)
                 .help("Maximum terminal columns to use. Set to 0 to autotetect. -X to use autodetected value or X, whichever is lower."),
         )
         .get_matches();
 
     // Post Clap parsing
     let sections = matches
-        .values_of("SECTIONS")
+        .get_many::<String>("SECTIONS")
         .unwrap()
-        .map(letter_to_section)
+        .map(|s| letter_to_section(s))
         .unique()
         .collect();
-    let term_columns: usize = match isize::from_str(matches.value_of("COLUMNS").unwrap()).unwrap() {
+    let term_columns: usize = match *matches.get_one::<isize>("COLUMNS").unwrap() {
         0 => {
             // Autodetect
             termsize::get()
@@ -237,7 +226,7 @@ fn parse_cl_args() -> CLArgs {
         // Passthrough
         v => v as usize,
     };
-    let show_section_titles = !matches.is_present("NO_TITLES");
+    let show_section_titles = !matches.get_flag("NO_TITLES");
 
     CLArgs {
         term_columns,
@@ -285,7 +274,7 @@ fn main() -> anyhow::Result<()> {
             }
             let lines = section_fut
                 .join()
-                .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))?
+                .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))?
                 .map(|d| format!("{d}"))
                 .map_err(|e| format!("{e}"));
             output_section(

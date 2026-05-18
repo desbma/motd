@@ -8,11 +8,11 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use ansi_term::{
-    Colour::{Red, Yellow},
+use libc::{endmntent, getmntent, setmntent, statvfs};
+use nu_ansi_term::{
+    Color::{Red, Yellow},
     Style,
 };
-use libc::{endmntent, getmntent, setmntent, statvfs};
 
 use crate::{
     config,

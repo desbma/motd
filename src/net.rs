@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ansi_term::Colour::{Red, Yellow};
+use nu_ansi_term::Color::{Red, Yellow};
 
 use crate::{fmt::format_kmgt_si, module::ModuleData};
 

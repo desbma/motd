@@ -1,6 +1,6 @@
 use std::{fmt, fs, str::FromStr as _, sync::atomic::Ordering};
 
-use ansi_term::Colour::{Red, Yellow};
+use nu_ansi_term::Color::{Red, Yellow};
 
 use crate::module::{ModuleData, CPU_COUNT};
 
