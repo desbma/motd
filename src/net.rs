@@ -95,7 +95,6 @@ fn get_network_stats() -> anyhow::Result<NetworkPendingStats> {
             /* tun always report 10 Mbps even if we can exceed that limit */
             None
         } else {
-            #[expect(clippy::return_and_then)]
             fs::read_to_string(itf_dir.join("speed"))
                 .ok()
                 .and_then(|s| {
