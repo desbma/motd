@@ -215,7 +215,7 @@ pub(crate) fn fetch(cfg: &config::TempConfig) -> anyhow::Result<ModuleData> {
 
         // Parse
         let drives_data: Vec<&str> = data.split('|').collect();
-        for drive_data in drives_data.chunks_exact(5) {
+        for drive_data in drives_data.as_chunks::<5>().0 {
             let drive_path = normalize_drive_path(&PathBuf::from(drive_data[1]))?;
             let pretty_name = drive_data[2];
             let Ok(temp) = u32::from_str(drive_data[3]) else {

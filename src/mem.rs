@@ -129,16 +129,14 @@ fn display_bar(parts: &[BarPart], f: &mut dyn fmt::Write) -> fmt::Result {
         write!(
             f,
             "{}",
-            &part
-                .fill_style
+            part.fill_style
                 .paint(part.bar_char.to_string().repeat(fill_count_before))
         )?;
-        write!(f, "{}", &part.text_style.paint(&label))?;
+        write!(f, "{}", part.text_style.paint(&label))?;
         write!(
             f,
             "{}",
-            &part
-                .fill_style
+            part.fill_style
                 .paint(part.bar_char.to_string().repeat(fill_count_after))
         )?;
     }
@@ -740,13 +738,13 @@ mod tests {
 
         TERM_COLUMNS.store(80, Ordering::SeqCst);
         assert_eq!(
-            format!("{}", &mem_info),
+            format!("{mem_info}"),
             "MemTotal: 12.1 MB\nMemFree:   1.2 MB (10.0%)\nDirty:     2.1 MB (17.3%)\nCached:    3.1 MB (25.3%)\nBuffers:   4.2 MB (35.0%)\n▕████\u{1b}[7mUsed 0.0GB (33.3%)\u{1b}[0m████\u{1b}[2m█████████████\u{1b}[0m\u{1b}[2;7mCached 0.0GB (58.3%)\u{1b}[0m\u{1b}[2m█████████████\u{1b}[0m Free ▏\n"
         );
 
         TERM_COLUMNS.store(30, Ordering::SeqCst);
         assert_eq!(
-            format!("{}", &mem_info),
+            format!("{mem_info}"),
             "MemTotal: 12.1 MB\nMemFree:   1.2 MB (10.0%)\nDirty:     2.1 MB (17.3%)\nCached:    3.1 MB (25.3%)\nBuffers:   4.2 MB (35.0%)\n▕██\u{1b}[7mUsed\u{1b}[0m███\u{1b}[2m██\u{1b}[0m\u{1b}[2;7mCached 0.0GB\u{1b}[0m\u{1b}[2m██\u{1b}[0m   ▏\n"
         );
     }
@@ -763,13 +761,13 @@ mod tests {
 
         TERM_COLUMNS.store(80, Ordering::SeqCst);
         assert_eq!(
-            format!("{}", &swap_info),
+            format!("{swap_info}"),
             "SwapTotal: 11.8 GB\nSwapFree:   2.2 GB (19.0%)\n▕██████████████████████\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███████████████████████Swap free 2.2GB▏\n"
         );
 
         TERM_COLUMNS.store(30, Ordering::SeqCst);
         assert_eq!(
-            format!("{}", &swap_info),
+            format!("{swap_info}"),
             "SwapTotal: 11.8 GB\nSwapFree:   2.2 GB (19.0%)\n▕██\u{1b}[7mUsed 9.5GB (81.0%)\u{1b}[0m███     ▏\n"
         );
 
@@ -780,6 +778,6 @@ mod tests {
         let mem_info = MemInfo { vals };
         let swap_info = SwapInfo::from(mem_info);
 
-        assert!(format!("{}", &swap_info).is_empty());
+        assert!(format!("{swap_info}").is_empty());
     }
 }
