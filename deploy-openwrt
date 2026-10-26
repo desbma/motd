@@ -1,0 +1,14 @@
+#!/bin/bash -eu
+
+set -o pipefail
+
+readonly SSH_HOST="${1:?}"
+
+readonly TARGET='armv7-unknown-linux-musleabihf'
+readonly PROFILE='release-tiny'
+
+cd "$(dirname -- "$0")"
+
+CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER=rust-lld cargo build --profile="${PROFILE}" --target "${TARGET}"
+
+ssh "${SSH_HOST}" 'cat > /usr/bin/motd && chmod +x /usr/bin/motd' < "target/${TARGET}/${PROFILE}/motd"
